@@ -15,13 +15,13 @@ class MyComponent : public climate::Climate, public PollingComponent, public std
   climate::ClimateTraits traits() override {
     auto traits = climate::ClimateTraits();
     
-    // Restore the CLIMATE_FEATURE_ prefix
-    traits.add_feature_flags(climate::ClimateFeature::CLIMATE_FEATURE_CURRENT_TEMPERATURE);
-    traits.add_feature_flags(climate::ClimateFeature::CLIMATE_FEATURE_ACTION);
+    // Using the simplified scoped enum names for current ESPHome versions
+    traits.add_feature_flags(climate::CURRENT_TEMPERATURE);
+    traits.add_feature_flags(climate::ACTION);
 
     traits.set_supported_modes({
-        climate::ClimateMode::CLIMATE_MODE_HEAT, 
-        climate::ClimateMode::CLIMATE_MODE_AUTO
+        climate::CLIMATE_MODE_HEAT, 
+        climate::CLIMATE_MODE_AUTO
     });
     
     traits.set_visual_temperature_step(0.5);

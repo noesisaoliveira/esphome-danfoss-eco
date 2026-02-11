@@ -5,8 +5,8 @@
 namespace esphome {
 namespace danfoss_eco {
 
-// 2026 Namespace Alias to solve the deep nesting error
-using BLEState = esp32_ble_client::ble_client::ClientState;
+// 2026 flattened namespace fix
+using BLEState = esp32_ble_client::ClientState;
 
 void Device::setup() {
   std::shared_ptr<MyComponent> sp_this = std::static_pointer_cast<MyComponent>(shared_from_this());
@@ -134,7 +134,19 @@ void Device::disconnect() {
   this->node_state = (uint8_t)BLEState::IDLE;
 }
 
-// ... (remaining helper setters)
+void Device::set_pin_code(const std::string &str) {
+  this->pin_code_ = std::stoi(str);
+}
+
+void Device::set_secret_key(const std::string &str) {
+  uint8_t key[16];
+  parse_hex_str(str.c_str(), str.length(), key);
+  this->set_secret_key(key, false);
+}
+
+void Device::set_secret_key(uint8_t *key, bool persist) {
+  this->xxtea->set_key(key);
+}
 
 } // namespace danfoss_eco
 } // namespace esphome
