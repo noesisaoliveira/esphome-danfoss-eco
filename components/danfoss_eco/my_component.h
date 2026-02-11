@@ -1,6 +1,6 @@
 #pragma once
 
-#include <set>  // FIX: Critical for std::set
+#include <set>
 #include <memory>
 #include "esphome/core/component.h"
 #include "esphome/components/sensor/sensor.h"
@@ -9,65 +9,51 @@
 
 #include "helpers.h"
 
-namespace esphome
-{
-    namespace danfoss_eco
-    {
-        using namespace esphome::climate;
-        using namespace esphome::sensor;
-        using namespace esphome::binary_sensor;
+namespace esphome {
+namespace danfoss_eco {
 
-        class MyComponent : public Climate, public PollingComponent, public std::enable_shared_from_this<MyComponent>
-        {
-        public:
-            float get_setup_priority() const override { return setup_priority::DATA; }
+class MyComponent : public climate::Climate, public PollingComponent, public std::enable_shared_from_this<MyComponent> {
+ public:
+  float get_setup_priority() const override { return setup_priority::DATA; }
 
-            ClimateTraits traits() override
-            {
-                auto traits = ClimateTraits();
-                
-                // FIX: Modern feature flag system for 2026
-                traits.add_feature_flags(CLIMATE_FEAT_CURRENT_TEMPERATURE);
-                traits.add_feature_flags(CLIMATE_FEAT_ACTION);
+  climate::ClimateTraits traits() override {
+    auto traits = climate::ClimateTraits();
+    
+    // 2026 Fix: Use explicit ClimateFeature enum
+    traits.add_feature_flags(climate::ClimateFeature::CLIMATE_FEATURE_CURRENT_TEMPERATURE);
+    traits.add_feature_flags(climate::ClimateFeature::CLIMATE_FEATURE_ACTION);
 
-                // FIX: Explicit std::set namespace
-                traits.set_supported_modes(std::set<ClimateMode>({
-                    ClimateMode::CLIMATE_MODE_HEAT, 
-                    ClimateMode::CLIMATE_MODE_AUTO
-                }));
-                
-                traits.set_visual_temperature_step(0.5);
-                
-                return traits;
-            }
+    // 2026 Fix: Use brace initialization for ClimateModeMask
+    traits.set_supported_modes({
+        climate::ClimateMode::CLIMATE_MODE_HEAT, 
+        climate::ClimateMode::CLIMATE_MODE_AUTO
+    });
+    
+    traits.set_visual_temperature_step(0.5);
+    return traits;
+  }
 
-            // FIX: Added these methods to resolve the "no member named" errors in properties.cpp
-            void set_visual_min_temperature_override(float temp) {
-                this->visual_min_temperature_override_ = temp;
-            }
-            void set_visual_max_temperature_override(float temp) {
-                this->visual_max_temperature_override_ = temp;
-            }
+  void set_visual_min_temperature_override(float temp) { this->visual_min_temperature_override_ = temp; }
+  void set_visual_max_temperature_override(float temp) { this->visual_max_temperature_override_ = temp; }
 
-            void set_battery_level(Sensor *battery_level) { battery_level_ = battery_level; }
-            void set_temperature(Sensor *temperature) { temperature_ = temperature; }
-            void set_problems(BinarySensor *problems) { problems_ = problems; }
+  void set_battery_level(sensor::Sensor *battery_level) { battery_level_ = battery_level; }
+  void set_temperature(sensor::Sensor *temperature) { temperature_ = temperature; }
+  void set_problems(binary_sensor::BinarySensor *problems) { problems_ = problems; }
 
-            Sensor *battery_level() { return this->battery_level_; }
-            Sensor *temperature() { return this->temperature_; }
-            BinarySensor *problems() { return this->problems_; }
+  sensor::Sensor *battery_level() { return this->battery_level_; }
+  sensor::Sensor *temperature() { return this->temperature_; }
+  binary_sensor::BinarySensor *problems() { return this->problems_; }
 
-            virtual void set_secret_key(uint8_t *, bool) = 0;
+  virtual void set_secret_key(uint8_t *, bool) = 0;
 
-        protected:
-            Sensor *battery_level_{nullptr};
-            Sensor *temperature_{nullptr};
-            BinarySensor *problems_{nullptr};
+ protected:
+  sensor::Sensor *battery_level_{nullptr};
+  sensor::Sensor *temperature_{nullptr};
+  binary_sensor::BinarySensor *problems_{nullptr};
 
-            // Helpers for the temperature overrides
-            optional<float> visual_min_temperature_override_{};
-            optional<float> visual_max_temperature_override_{};
-        };
+  optional<float> visual_min_temperature_override_{};
+  optional<float> visual_max_temperature_override_{};
+};
 
-    } // namespace danfoss_eco
+} // namespace danfoss_eco
 } // namespace esphome

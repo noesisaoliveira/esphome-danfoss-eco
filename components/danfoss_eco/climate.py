@@ -44,8 +44,6 @@ def validate_pin(value):
         raise cv.Invalid("PIN code should be numeric")
     return value
 
-# FIX: Using the function calls climate_schema, sensor_schema, and binary_sensor_schema
-# This is the most compatible way for ESPHome 2026.1.5
 CONFIG_SCHEMA = (
     climate.climate_schema(DanfossEco)
     .extend(
