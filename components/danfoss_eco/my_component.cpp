@@ -31,14 +31,22 @@ void MyComponent::control(const climate::ClimateCall &call) {
 
 climate::ClimateTraits MyComponent::traits() {
   auto traits = climate::ClimateTraits();
-  // Fixed feature flags for 2026
+  
+  // Use the modern way to set features to avoid warnings
   traits.set_supports_current_temperature(true);
+  traits.set_supports_two_point_target_temperature(false);
   traits.set_supports_action(true);
   
   traits.set_visual_min_temperature(this->visual_min_temp_);
   traits.set_visual_max_temperature(this->visual_max_temp_);
   traits.set_visual_temperature_step(0.5f);
-  traits.set_supported_modes({climate::CLIMATE_MODE_HEAT, climate::CLIMATE_MODE_AUTO});
+  
+  traits.set_supported_modes({
+    climate::CLIMATE_MODE_HEAT, 
+    climate::CLIMATE_MODE_AUTO,
+    climate::CLIMATE_MODE_OFF
+  });
+  
   return traits;
 }
 

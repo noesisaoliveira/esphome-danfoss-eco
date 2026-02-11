@@ -11,13 +11,24 @@ namespace danfoss_eco {
 
 using BLEClient = ble_client::BLEClient;
 
-// Use a simple enum for manual type checking since RTTI is disabled
+// 1. UUIDs must be defined BEFORE the classes that use them
+static auto SERVICE_SETTINGS = esp32_ble_tracker::ESPBTUUID::from_raw("10020000-2749-0001-0000-00805f9b042f");
+static auto CHARACTERISTIC_PIN = esp32_ble_tracker::ESPBTUUID::from_raw("10020001-2749-0001-0000-00805f9b042f");
+static auto CHARACTERISTIC_SETTINGS = esp32_ble_tracker::ESPBTUUID::from_raw("10020003-2749-0001-0000-00805f9b042f");
+static auto CHARACTERISTIC_TEMPERATURE = esp32_ble_tracker::ESPBTUUID::from_raw("10020005-2749-0001-0000-00805f9b042f");
+static auto CHARACTERISTIC_ERRORS = esp32_ble_tracker::ESPBTUUID::from_raw("10020009-2749-0001-0000-00805f9b042f");
+static auto CHARACTERISTIC_SECRET_KEY = esp32_ble_tracker::ESPBTUUID::from_raw("1002000b-2749-0001-0000-00805f9b042f");
+
+static auto SERVICE_BATTERY = esp32_ble_tracker::ESPBTUUID::from_uint32(0x180F);
+static auto CHARACTERISTIC_BATTERY = esp32_ble_tracker::ESPBTUUID::from_uint32(0x2A19);
+
+const uint16_t INVALID_HANDLE_VAL = 0xFFFF;
 enum PropertyType { TYPE_READ_ONLY, TYPE_WRITABLE };
 
 class DeviceProperty {
  public:
   std::unique_ptr<DeviceData> data{nullptr};
-  uint16_t handle{0xFFFF};
+  uint16_t handle{INVALID_HANDLE_VAL};
   PropertyType prop_type{TYPE_READ_ONLY};
 
   DeviceProperty(MyComponent *component, std::shared_ptr<Xxtea> xxtea, 
