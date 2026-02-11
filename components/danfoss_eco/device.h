@@ -19,7 +19,6 @@ struct Command {
     if (type == CommandType::READ) {
       return property->read_request(client);
     } else {
-      // Manual cast instead of dynamic_pointer_cast
       if (property->prop_type == TYPE_WRITABLE) {
         auto writable = std::static_pointer_cast<WritableProperty>(property);
         return writable->write_request(client);
@@ -44,13 +43,14 @@ class Device {
   void set_secret_key(uint8_t *key, bool persist);
 
  protected:
+  void write_pin(); // This was missing!
+
   MyComponent *parent_;
   std::shared_ptr<Xxtea> xxtea_;
   std::vector<std::shared_ptr<DeviceProperty>> properties_;
   std::queue<Command*> commands_;
   
   uint32_t pin_code_{0};
-  uint8_t node_state_{0};
 
   std::shared_ptr<WritableProperty> p_pin_;
   std::shared_ptr<BatteryProperty> p_battery_;

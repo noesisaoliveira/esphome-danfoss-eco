@@ -31,25 +31,16 @@ void MyComponent::control(const climate::ClimateCall &call) {
 
 climate::ClimateTraits MyComponent::traits() {
   auto traits = climate::ClimateTraits();
-  
-  // Use the modern way to set features to avoid warnings
-  traits.set_supports_current_temperature(true);
-  traits.set_supports_two_point_target_temperature(false);
-  traits.set_supports_action(true);
+  traits.add_feature_flags(climate::CLIMATE_FEAT_TARGET_TEMPERATURE);
+  traits.add_feature_flags(climate::CLIMATE_FEAT_CURRENT_TEMPERATURE);
+  traits.add_feature_flags(climate::CLIMATE_FEAT_ACTION);
   
   traits.set_visual_min_temperature(this->visual_min_temp_);
   traits.set_visual_max_temperature(this->visual_max_temp_);
   traits.set_visual_temperature_step(0.5f);
-  
-  traits.set_supported_modes({
-    climate::CLIMATE_MODE_HEAT, 
-    climate::CLIMATE_MODE_AUTO,
-    climate::CLIMATE_MODE_OFF
-  });
-  
+  traits.set_supported_modes({climate::CLIMATE_MODE_HEAT, climate::CLIMATE_MODE_AUTO});
   return traits;
 }
-
 void MyComponent::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param) {
   this->device_->gattc_event_handler(event, gattc_if, param);
 }
