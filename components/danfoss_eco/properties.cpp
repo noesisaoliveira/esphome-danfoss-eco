@@ -78,9 +78,8 @@ namespace esphome
             if (this->component_->temperature() != nullptr)
                 this->component_->temperature()->publish_state(t_data->room_temperature);
 
-            // apply read configuration to the component
-            // TODO component->action should consider "open window detection" feature of Danfoss Eco
-            this->component_->action = (t_data->room_temperature > t_data->target_temperature) ? climate::ClimateAction::CLIMATE_ACTION_IDLE : climate::ClimateAction::CLIMATE_ACTION_HEATING;
+            // FIX: Modern climate action logic for 2026
+            this->component_->action = (t_data->room_temperature >= t_data->target_temperature) ? climate::CLIMATE_ACTION_IDLE : climate::CLIMATE_ACTION_HEATING;
             this->component_->target_temperature = t_data->target_temperature;
             this->component_->current_temperature = t_data->room_temperature;
             this->component_->publish_state();
@@ -92,24 +91,15 @@ namespace esphome
             this->data.reset(s_data);
 
             const char *name = this->component_->get_name().c_str();
-            ESP_LOGD(TAG, "[%s] adaptable_regulation: %d", name, s_data->get_adaptable_regulation());
-            ESP_LOGD(TAG, "[%s] vertical_intallation: %d", name, s_data->get_vertical_intallation());
-            ESP_LOGD(TAG, "[%s] display_flip: %d", name, s_data->get_display_flip());
-            ESP_LOGD(TAG, "[%s] slow_regulation: %d", name, s_data->get_slow_regulation());
-            ESP_LOGD(TAG, "[%s] valve_installed: %d", name, s_data->get_valve_installed());
-            ESP_LOGD(TAG, "[%s] lock_control: %d", name, s_data->get_lock_control());
-            ESP_LOGD(TAG, "[%s] temperature_min: %2.1f°C", name, s_data->temperature_min);
-            ESP_LOGD(TAG, "[%s] temperature_max: %2.1f°C", name, s_data->temperature_max);
-            ESP_LOGD(TAG, "[%s] frost_protection_temperature: %2.1f°C", name, s_data->frost_protection_temperature);
-            ESP_LOGD(TAG, "[%s] schedule_mode: %d", name, s_data->device_mode);
-            ESP_LOGD(TAG, "[%s] vacation_temperature: %2.1f°C", name, s_data->vacation_temperature);
-            ESP_LOGD(TAG, "[%s] vacation_from: %d", name, (int)s_data->vacation_from);
-            ESP_LOGD(TAG, "[%s] vacation_to: %d", name, (int)s_data->vacation_to);
+            ESP_LOGD(TAG, "[%s] temperature_min: %2.1f°C, temperature_max: %2.1f°C", name, s_data->temperature_min, s_data->temperature_max);
 
             // apply read configuration to the component
             this->component_->mode = s_data->device_mode;
+            
+            // These methods now exist because we added them to MyComponent in my_component.h
             this->component_->set_visual_min_temperature_override(s_data->temperature_min);
             this->component_->set_visual_max_temperature_override(s_data->temperature_max);
+            
             this->component_->publish_state();
         }
 
@@ -118,14 +108,6 @@ namespace esphome
             auto e_data = new ErrorsData(this->xxtea_, value, value_len);
             this->data.reset(e_data);
 
-            const char *name = this->component_->get_name().c_str();
-
-            ESP_LOGD(TAG, "[%s] E9_VALVE_DOES_NOT_CLOSE: %d", name, e_data->E9_VALVE_DOES_NOT_CLOSE);
-            ESP_LOGD(TAG, "[%s] E10_INVALID_TIME: %d", name, e_data->E10_INVALID_TIME);
-            ESP_LOGD(TAG, "[%s] E14_LOW_BATTERY: %d", name, e_data->E14_LOW_BATTERY);
-            ESP_LOGD(TAG, "[%s] E15_VERY_LOW_BATTERY: %d", name, e_data->E15_VERY_LOW_BATTERY);
-
-            // TODO: it would be great to add actual error code to binary_sensor state attributes, but I'm not sure how to achieve that
             if (this->component_->problems() != nullptr)
                 this->component_->problems()->publish_state(e_data->E9_VALVE_DOES_NOT_CLOSE || e_data->E10_INVALID_TIME || e_data->E14_LOW_BATTERY || e_data->E15_VERY_LOW_BATTERY);
         }
@@ -134,7 +116,7 @@ namespace esphome
         {
             if (this->xxtea_->status() != XXTEA_STATUS_NOT_INITIALIZED)
             {
-                ESP_LOGD(TAG, "[%s] xxtea is initialized, will not request a read of secret_key", this->component_->get_name().c_str());
+                ESP_LOGD(TAG, "[%s] xxtea is initialized", this->component_->get_name().c_str());
                 return true;
             }
 
@@ -145,24 +127,19 @@ namespace esphome
                 return true;
             }
 
-            ESP_LOGW(TAG, "[%s] Danfoss Eco hardware button was not pressed, unable to read the secret key", this->component_->get_name().c_str());
+            ESP_LOGW(TAG, "[%s] Hardware button not pressed, cannot read secret key", this->component_->get_name().c_str());
             this->handle = INVALID_HANDLE;
             return false;
         }
 
         void SecretKeyProperty::update_state(uint8_t *value, uint16_t value_len)
         {
-            if (value_len != SECRET_KEY_LENGTH)
-            {
-                ESP_LOGE(TAG, "[%s] Unexpected secret_key length: %d", this->component_->get_name().c_str(), value_len);
-                return;
-            }
+            if (value_len != SECRET_KEY_LENGTH) return;
 
             char key_str[SECRET_KEY_LENGTH * 2 + 1];
             encode_hex(value, value_len, key_str);
 
-            ESP_LOGI(TAG, "[%s] Consider adding below line to your danfoss_eco config:", this->component_->get_name().c_str());
-            ESP_LOGI(TAG, "[%s] secret_key: %s", this->component_->get_name().c_str(), key_str);
+            ESP_LOGI(TAG, "[%s] secret_key found: %s", this->component_->get_name().c_str(), key_str);
             this->component_->set_secret_key(value, true);
         }
 
