@@ -23,7 +23,6 @@ void MyComponent::update() {
 
 void MyComponent::dump_config() {
   LOG_CLIMATE("", "Danfoss Eco", this);
-  ESP_LOGCONFIG(TAG, "  PIN Code: ****");
 }
 
 void MyComponent::control(const climate::ClimateCall &call) {
@@ -32,8 +31,11 @@ void MyComponent::control(const climate::ClimateCall &call) {
 
 climate::ClimateTraits MyComponent::traits() {
   auto traits = climate::ClimateTraits();
-  traits.set_supports_current_temperature(true);
-  traits.set_supports_action(true);
+  // Modern bitmask flags for 2026
+  traits.add_feature_flags(climate::CLIMATE_FEAT_TARGET_TEMPERATURE);
+  traits.add_feature_flags(climate::CLIMATE_FEAT_CURRENT_TEMPERATURE);
+  traits.add_feature_flags(climate::CLIMATE_FEAT_ACTION);
+  
   traits.set_visual_min_temperature(this->visual_min_temp_);
   traits.set_visual_max_temperature(this->visual_max_temp_);
   traits.set_visual_temperature_step(0.5f);
