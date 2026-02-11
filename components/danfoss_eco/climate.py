@@ -50,7 +50,7 @@ def validate_pin(value):
     return value
 
 CONFIG_SCHEMA = (
-    climate.CLIMATE_SCHEMA.extend(
+    climate.CH_CLIMATE_SCHEMA.extend(
         {
             cv.GenerateID(): cv.declare_id(DanfossEco),
             cv.Optional(CONF_SECRET_KEY): validate_secret,
