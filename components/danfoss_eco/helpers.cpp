@@ -63,18 +63,18 @@ uint8_t *encrypt(std::shared_ptr<Xxtea> &xxtea, uint8_t *value, uint16_t value_l
     return value;
 }
 
-uint8_t *decrypt(std::shared_ptr<Xxtea> &xxtea, uint8_t *value, uint16_t value_len) {
-    uint8_t buffer[value_len];
-    reverse_chunks(value, value_len, buffer);
-    if (xxtea->decrypt(buffer, value_len) == XXTEA_STATUS_SUCCESS) {
-        reverse_chunks(buffer, value_len, value);
-    }
-    return value;
+uint8_t danfoss_char_to_hex(char chr) {
+    if (chr >= '0' && chr <= '9') return chr - '0';
+    if (chr >= 'A' && chr <= 'F') return chr - 'A' + 10;
+    if (chr >= 'a' && chr <= 'f') return chr - 'a' + 10;
+    return 0;
 }
 
-void copy_address(uint64_t mac, esp_bd_addr_t bd_addr) {
-    for (int i = 0; i < 6; i++) {
-        bd_addr[i] = (mac >> (40 - i * 8)) & 0xFF;
+void parse_hex_str(const char *data, size_t str_len, uint8_t *buff) {
+    for (size_t i = 0; i < str_len / 2; i++) {
+        uint8_t msb = danfoss_char_to_hex(data[i * 2]);
+        uint8_t lsb = danfoss_char_to_hex(data[i * 2 + 1]);
+        buff[i] = (msb << 4) | lsb;
     }
 }
 

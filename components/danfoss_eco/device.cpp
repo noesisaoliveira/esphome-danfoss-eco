@@ -5,6 +5,9 @@
 namespace esphome {
 namespace danfoss_eco {
 
+// 2026 Namespace Alias to solve the deep nesting error
+using BLEState = esp32_ble_client::ble_client::ClientState;
+
 void Device::setup() {
   std::shared_ptr<MyComponent> sp_this = std::static_pointer_cast<MyComponent>(shared_from_this());
 
@@ -19,8 +22,7 @@ void Device::setup() {
   
   copy_address(this->parent()->get_address(), this->parent()->get_remote_bda());
   
-  // 2026 BLE State Fix
-  this->parent()->set_state(esp32_ble_client::ClientState::IDLE);
+  this->parent()->set_state(BLEState::IDLE);
 }
 
 void Device::loop() {
@@ -29,7 +31,7 @@ void Device::loop() {
     this->status_clear_error();
   }
 
-  if (this->node_state != esp32_ble_client::ClientState::ESTABLISHED)
+  if (this->node_state != (uint8_t)BLEState::ESTABLISHED)
     return;
 
   Command *cmd = this->commands_.pop();
@@ -56,7 +58,6 @@ void Device::update() {
   }
 }
 
-// 2026 Fix: Use explicit climate::ClimateCall namespace
 void Device::control(const climate::ClimateCall &call) {
   if (call.get_target_temperature().has_value()) {
     TemperatureData &t_data = (TemperatureData &)(*this->p_temperature->data);
@@ -120,20 +121,20 @@ void Device::on_write_pin(esp_ble_gattc_cb_param_t::gattc_write_evt_param param)
     this->disconnect();
     return;
   }
-  this->node_state = esp32_ble_client::ClientState::ESTABLISHED;
+  this->node_state = (uint8_t)BLEState::ESTABLISHED;
 }
 
 void Device::connect() {
-  if (this->node_state == esp32_ble_client::ClientState::ESTABLISHED) return;
-  this->parent()->set_state(esp32_ble_client::ClientState::CONNECTING_DISCOVERED);
+  if (this->node_state == (uint8_t)BLEState::ESTABLISHED) return;
+  this->parent()->set_state(BLEState::CONNECTING_DISCOVERED);
 }
 
 void Device::disconnect() {
   this->parent()->set_enabled(false);
-  this->node_state = esp32_ble_client::ClientState::IDLE;
+  this->node_state = (uint8_t)BLEState::IDLE;
 }
 
-// ... (Rest of set_pin_code and set_secret_key remains the same)
+// ... (remaining helper setters)
 
 } // namespace danfoss_eco
 } // namespace esphome

@@ -15,9 +15,9 @@ class MyComponent : public climate::Climate, public PollingComponent, public std
   climate::ClimateTraits traits() override {
     auto traits = climate::ClimateTraits();
     
-    // 2026 Fix: Shortened enum names
-    traits.add_feature_flags(climate::ClimateFeature::CURRENT_TEMPERATURE);
-    traits.add_feature_flags(climate::ClimateFeature::ACTION);
+    // Restore the CLIMATE_FEATURE_ prefix
+    traits.add_feature_flags(climate::ClimateFeature::CLIMATE_FEATURE_CURRENT_TEMPERATURE);
+    traits.add_feature_flags(climate::ClimateFeature::CLIMATE_FEATURE_ACTION);
 
     traits.set_supported_modes({
         climate::ClimateMode::CLIMATE_MODE_HEAT, 
@@ -25,8 +25,6 @@ class MyComponent : public climate::Climate, public PollingComponent, public std
     });
     
     traits.set_visual_temperature_step(0.5);
-    traits.set_visual_min_temperature(5.0);
-    traits.set_visual_max_temperature(35.0);
     return traits;
   }
 
