@@ -31,10 +31,9 @@ void MyComponent::control(const climate::ClimateCall &call) {
 
 climate::ClimateTraits MyComponent::traits() {
   auto traits = climate::ClimateTraits();
-  // Modern bitmask flags for 2026
-  traits.add_feature_flags(climate::CLIMATE_FEAT_TARGET_TEMPERATURE);
-  traits.add_feature_flags(climate::CLIMATE_FEAT_CURRENT_TEMPERATURE);
-  traits.add_feature_flags(climate::CLIMATE_FEAT_ACTION);
+  // Fixed feature flags for 2026
+  traits.set_supports_current_temperature(true);
+  traits.set_supports_action(true);
   
   traits.set_visual_min_temperature(this->visual_min_temp_);
   traits.set_visual_max_temperature(this->visual_max_temp_);
