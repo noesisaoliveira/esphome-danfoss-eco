@@ -44,7 +44,8 @@ def validate_pin(value):
         raise cv.Invalid("PIN code should be numeric")
     return value
 
-# FIX: Using modern 2026 schema references
+# FIX: Using the function calls climate_schema, sensor_schema, and binary_sensor_schema
+# This is the most compatible way for ESPHome 2026.1.5
 CONFIG_SCHEMA = (
     climate.climate_schema(DanfossEco)
     .extend(
@@ -64,16 +65,13 @@ CONFIG_SCHEMA = (
                 device_class=DEVICE_CLASS_TEMPERATURE,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
-            # FIX: binary_sensor.BINARY_SENSOR_SCHEMA -> binary_sensor.SCHEMA
-            cv.Optional(CONF_PROBLEMS): binary_sensor.SCHEMA.extend({
-                cv.Optional(CONF_NAME): cv.string,
-                cv.Optional(CONF_ENTITY_CATEGORY, default=ENTITY_CATEGORY_DIAGNOSTIC): cv.entity_category,
-                cv.Optional(CONF_DEVICE_CLASS, default=DEVICE_CLASS_PROBLEM): binary_sensor.validate_device_class
-            })
+            cv.Optional(CONF_PROBLEMS): binary_sensor.binary_sensor_schema(
+                device_class=DEVICE_CLASS_PROBLEM,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            )
         }
     )
-    # FIX: ble_client.BLE_CLIENT_SCHEMA -> ble_client.SCHEMA
-    .extend(ble_client.SCHEMA)
+    .extend(ble_client.BLE_CLIENT_SCHEMA if hasattr(ble_client, 'BLE_CLIENT_SCHEMA') else ble_client.SCHEMA)
     .extend(cv.polling_component_schema("60s"))
 )
 
