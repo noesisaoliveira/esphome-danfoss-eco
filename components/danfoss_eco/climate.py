@@ -4,17 +4,13 @@ from esphome.components import climate, ble_client, sensor, binary_sensor
 from esphome.const import (
     CONF_ID,
     CONF_NAME,
-    
     CONF_TEMPERATURE,
     CONF_BATTERY_LEVEL,
-    
     CONF_ENTITY_CATEGORY,
     ENTITY_CATEGORY_DIAGNOSTIC,
-    
     STATE_CLASS_MEASUREMENT,
     UNIT_PERCENT,
     UNIT_CELSIUS,
-    
     CONF_DEVICE_CLASS,
     DEVICE_CLASS_BATTERY,
     DEVICE_CLASS_TEMPERATURE,
@@ -23,7 +19,6 @@ from esphome.const import (
 
 CODEOWNERS = ["@dmitry-cherkas"]
 DEPENDENCIES = ["ble_client"]
-# load zero-configuration dependencies automatically
 AUTO_LOAD = ["sensor", "binary_sensor", "esp32_ble_tracker"]
 
 CONF_PIN_CODE = 'pin_code'
@@ -49,8 +44,9 @@ def validate_pin(value):
         raise cv.Invalid("PIN code should be numeric")
     return value
 
+# FIX: Changed CH_CLIMATE_SCHEMA to CLIMATE_SCHEMA for ESPHome 2026 compatibility
 CONFIG_SCHEMA = (
-    climate.CH_CLIMATE_SCHEMA.extend(
+    climate.CLIMATE_SCHEMA.extend(
         {
             cv.GenerateID(): cv.declare_id(DanfossEco),
             cv.Optional(CONF_SECRET_KEY): validate_secret,
@@ -85,8 +81,10 @@ async def to_code(config):
     await climate.register_climate(var, config)
     await ble_client.register_ble_node(var, config)
     
-    cg.add(var.set_secret_key(config.get(CONF_SECRET_KEY, "")))
-    cg.add(var.set_pin_code(config.get(CONF_PIN_CODE, "")))
+    if CONF_SECRET_KEY in config:
+        cg.add(var.set_secret_key(config[CONF_SECRET_KEY]))
+    if CONF_PIN_CODE in config:
+        cg.add(var.set_pin_code(config[CONF_PIN_CODE]))
     
     if CONF_BATTERY_LEVEL in config:
         sens = await sensor.new_sensor(config[CONF_BATTERY_LEVEL])
@@ -97,4 +95,3 @@ async def to_code(config):
     if CONF_PROBLEMS in config:
         b_sens = await binary_sensor.new_binary_sensor(config[CONF_PROBLEMS])
         cg.add(var.set_problems(b_sens))
-    
