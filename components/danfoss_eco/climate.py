@@ -44,8 +44,7 @@ def validate_pin(value):
         raise cv.Invalid("PIN code should be numeric")
     return value
 
-# FIX: In 2026, we use climate.CLIMATE_SCHEMA (if it exists) 
-# or climate_schema(DanfossEco) which is more robust.
+# FIX: Using modern 2026 schema references
 CONFIG_SCHEMA = (
     climate.climate_schema(DanfossEco)
     .extend(
@@ -65,14 +64,16 @@ CONFIG_SCHEMA = (
                 device_class=DEVICE_CLASS_TEMPERATURE,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
-            cv.Optional(CONF_PROBLEMS): binary_sensor.BINARY_SENSOR_SCHEMA.extend({
+            # FIX: binary_sensor.BINARY_SENSOR_SCHEMA -> binary_sensor.SCHEMA
+            cv.Optional(CONF_PROBLEMS): binary_sensor.SCHEMA.extend({
                 cv.Optional(CONF_NAME): cv.string,
                 cv.Optional(CONF_ENTITY_CATEGORY, default=ENTITY_CATEGORY_DIAGNOSTIC): cv.entity_category,
                 cv.Optional(CONF_DEVICE_CLASS, default=DEVICE_CLASS_PROBLEM): binary_sensor.validate_device_class
             })
         }
     )
-    .extend(ble_client.BLE_CLIENT_SCHEMA)
+    # FIX: ble_client.BLE_CLIENT_SCHEMA -> ble_client.SCHEMA
+    .extend(ble_client.SCHEMA)
     .extend(cv.polling_component_schema("60s"))
 )
 
