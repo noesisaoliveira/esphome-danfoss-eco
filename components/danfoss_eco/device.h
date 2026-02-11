@@ -1,75 +1,65 @@
 #pragma once
 
 #include "esphome/components/ble_client/ble_client.h"
-#include "esphome/components/climate/climate.h"
-#include "esphome/core/preferences.h"
-
-#include "helpers.h"
-#include "command.h"
 #include "properties.h"
-#include "my_component.h"
-#include "xxtea.h"
-
-#include <set>
-#include <memory>
-#include <vector>
-
-#ifdef USE_ESP32
-#include <esp_gattc_api.h>
+#include <queue>
 
 namespace esphome {
 namespace danfoss_eco {
 
-class Device : public MyComponent, public esphome::ble_client::BLEClientNode {
- public:
-  Device() : xxtea(std::make_shared<Xxtea>()) {};
+enum class CommandType { READ, WRITE };
 
-  void dump_config() override {
-    LOG_CLIMATE("", "Danfoss Eco eTRV", this);
-    // 2026 Fix: address_str() returns const char* directly
-    ESP_LOGCONFIG(TAG, "  MAC Address: %s", this->parent()->address_str());
-    LOG_SENSOR("", "  Battery Level", this->battery_level_);
-    LOG_SENSOR("", "  Room Temperature", this->temperature_);
-    LOG_BINARY_SENSOR("", "  Problems", this->problems_);
+struct Command {
+  CommandType type;
+  std::shared_ptr<DeviceProperty> property;
+  Command(CommandType t, std::shared_ptr<DeviceProperty> p) : type(t), property(p) {}
+  
+  bool execute(esp32_ble_client::BLEClient *client) {
+    if (property->handle == 0xFFFF) return false;
+    return (type == CommandType::READ) ? property->read_request(client) : 
+           std::static_pointer_cast<WritableProperty>(property)->write_request(client);
   }
+};
 
-  void setup() override;
-  void loop() override;
-  void update() override;
-  void gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param) override;
+class Device : public std::enable_shared_from_this<Device> {
+ public:
+  Device(MyComponent *parent, std::shared_ptr<Xxtea> xxtea) : parent_(parent), xxtea_(xxtea) {}
+  
+  void setup();
+  void loop();
+  void update();
+  void control(const climate::ClimateCall &call);
+  void gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param);
 
-  void set_secret_key(uint8_t *key, bool persist) override;
-  void set_secret_key(const std::string &str);
   void set_pin_code(const std::string &str);
+  void set_secret_key(const std::string &str);
+  void set_secret_key(uint8_t *key, bool persist);
 
  protected:
-  // 2026 Fix: Explicit namespace for the override
-  void control(const climate::ClimateCall &call) override;
-
+  void write_pin();
   void connect();
   void disconnect();
-  void write_pin();
-  void on_write_pin(esp_ble_gattc_cb_param_t::gattc_write_evt_param param);
+  
   void on_read(esp_ble_gattc_cb_param_t::gattc_read_char_evt_param param);
   void on_write(esp_ble_gattc_cb_param_t::gattc_write_evt_param param);
+  void on_write_pin(esp_ble_gattc_cb_param_t::gattc_write_evt_param param);
 
-  std::shared_ptr<Xxtea> xxtea;
-  std::shared_ptr<WritableProperty> p_pin{nullptr};
-  std::shared_ptr<BatteryProperty> p_battery{nullptr};
-  std::shared_ptr<TemperatureProperty> p_temperature{nullptr};
-  std::shared_ptr<SettingsProperty> p_settings{nullptr};
-  std::shared_ptr<ErrorsProperty> p_errors{nullptr};
-  std::shared_ptr<SecretKeyProperty> p_secret_key{nullptr};
+  MyComponent *parent_;
+  std::shared_ptr<Xxtea> xxtea_;
+  std::vector<std::shared_ptr<DeviceProperty>> properties_;
+  std::queue<Command*> commands_;
+  
+  uint32_t pin_code_{0};
+  uint16_t request_counter_{0};
+  uint8_t node_state_{0};
 
-  std::set<std::shared_ptr<DeviceProperty>> properties{};
-
- private:
-  ESPPreferenceObject secret_pref_;
-  uint32_t pin_code_ = 0;
-  uint8_t request_counter_ = 0;
-  CommandQueue commands_;
+  std::shared_ptr<WritableProperty> p_pin_;
+  std::shared_ptr<BatteryProperty> p_battery_;
+  std::shared_ptr<TemperatureProperty> p_temperature_;
+  std::shared_ptr<SettingsProperty> p_settings_;
+  std::shared_ptr<ErrorsProperty> p_errors_;
+  std::shared_ptr<SecretKeyProperty> p_secret_key_;
 };
 
 } // namespace danfoss_eco
 } // namespace esphome
-#endif

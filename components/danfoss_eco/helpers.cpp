@@ -1,6 +1,5 @@
-#include "esphome/core/helpers.h"
-#include "esphome/core/log.h"
 #include "helpers.h"
+#include "esphome/core/log.h"
 #include <cstdio>
 #include <cstring>
 
@@ -26,10 +25,12 @@ void encode_hex(const uint8_t *data, size_t len, char *buff) {
   for (size_t i = 0; i < len; i++) {
     sprintf(buff + i * 2, "%02x", data[i]);
   }
+  buff[len * 2] = '\0';
 }
 
 uint32_t parse_int(const uint8_t *data, int start_pos) {
-  return (uint32_t)data[start_pos] | (uint32_t)data[start_pos + 1] << 8 | (uint32_t)data[start_pos + 2] << 16 | (uint32_t)data[start_pos + 3] << 24;
+  return (uint32_t)data[start_pos] | (uint32_t)data[start_pos + 1] << 8 | 
+         (uint32_t)data[start_pos + 2] << 16 | (uint32_t)data[start_pos + 3] << 24;
 }
 
 uint16_t parse_short(const uint8_t *data, int start_pos) {
@@ -58,22 +59,6 @@ void reverse_chunks(uint8_t *data, int len, uint8_t *reversed_buff) {
     reversed_buff[i * 4 + 2] = data[i * 4 + 1];
     reversed_buff[i * 4 + 3] = data[i * 4];
   }
-}
-
-uint8_t *encrypt(std::shared_ptr<Xxtea> &xxtea, uint8_t *value, uint16_t value_len) {
-  uint8_t reversed[value_len];
-  reverse_chunks(value, value_len, reversed);
-  uint8_t *encrypted = xxtea->encrypt(reversed, value_len);
-  reverse_chunks(encrypted, value_len, encrypted);
-  return encrypted;
-}
-
-uint8_t *decrypt(std::shared_ptr<Xxtea> &xxtea, uint8_t *value, uint16_t value_len) {
-  uint8_t reversed[value_len];
-  reverse_chunks(value, value_len, reversed);
-  uint8_t *decrypted = xxtea->decrypt(reversed, value_len);
-  reverse_chunks(decrypted, value_len, decrypted);
-  return decrypted;
 }
 
 void copy_address(uint64_t mac, esp_bd_addr_t bd_addr) {

@@ -5,7 +5,6 @@
 namespace esphome {
 namespace danfoss_eco {
 
-// 2026 flattened namespace fix
 using BLEState = esp32_ble_client::ClientState;
 
 void Device::setup() {
