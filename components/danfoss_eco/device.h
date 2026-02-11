@@ -3,12 +3,16 @@
 #include "esphome/components/ble_client/ble_client.h"
 #include "esphome/components/climate/climate.h"
 #include "esphome/core/preferences.h"
+
 #include "helpers.h"
 #include "command.h"
 #include "properties.h"
 #include "my_component.h"
 #include "xxtea.h"
-#include <set>  // FIX: Added missing header for std::set
+
+#include <set>
+#include <memory>
+#include <vector>
 
 #ifdef USE_ESP32
 
@@ -18,15 +22,10 @@ namespace esphome
 {
   namespace danfoss_eco
   {
-    // Note: 'using namespace std' is generally discouraged in headers, 
-    // but kept here to maintain compatibility with existing properties.cpp logic.
-    using namespace std;
-    using namespace climate;
-
     class Device : public MyComponent, public esphome::ble_client::BLEClientNode
     {
     public:
-      Device() : xxtea(make_shared<Xxtea>()){};
+      Device() : xxtea(std::make_shared<Xxtea>()){};
 
       void dump_config() override
       {
@@ -44,11 +43,11 @@ namespace esphome
 
       void set_secret_key(uint8_t *, bool) override;
 
-      void set_secret_key(const string &);
-      void set_pin_code(const string &);
+      void set_secret_key(const std::string &);
+      void set_pin_code(const std::string &);
 
     protected:
-      void control(const ClimateCall &call) override;
+      void control(const climate::ClimateCall &call) override;
 
       void connect();
       void disconnect();
@@ -59,17 +58,16 @@ namespace esphome
       void on_read(esp_ble_gattc_cb_param_t::gattc_read_char_evt_param);
       void on_write(esp_ble_gattc_cb_param_t::gattc_write_evt_param);
 
-      shared_ptr<Xxtea> xxtea;
+      std::shared_ptr<Xxtea> xxtea;
 
-      shared_ptr<WritableProperty> p_pin{nullptr};
-      shared_ptr<BatteryProperty> p_battery{nullptr};
-      shared_ptr<TemperatureProperty> p_temperature{nullptr};
-      shared_ptr<SettingsProperty> p_settings{nullptr};
-      shared_ptr<ErrorsProperty> p_errors{nullptr};
-      shared_ptr<SecretKeyProperty> p_secret_key{nullptr};
+      std::shared_ptr<WritableProperty> p_pin{nullptr};
+      std::shared_ptr<BatteryProperty> p_battery{nullptr};
+      std::shared_ptr<TemperatureProperty> p_temperature{nullptr};
+      std::shared_ptr<SettingsProperty> p_settings{nullptr};
+      std::shared_ptr<ErrorsProperty> p_errors{nullptr};
+      std::shared_ptr<SecretKeyProperty> p_secret_key{nullptr};
 
-      // FIX: Explicitly using std::set
-      std::set<shared_ptr<DeviceProperty>> properties{};
+      std::set<std::shared_ptr<DeviceProperty>> properties{};
 
     private:
       ESPPreferenceObject secret_pref_;
