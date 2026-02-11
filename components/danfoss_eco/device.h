@@ -2,14 +2,13 @@
 
 #include "esphome/components/ble_client/ble_client.h"
 #include "esphome/components/climate/climate.h"
-
 #include "esphome/core/preferences.h"
-
 #include "helpers.h"
 #include "command.h"
 #include "properties.h"
 #include "my_component.h"
 #include "xxtea.h"
+#include <set>  // FIX: Added missing header for std::set
 
 #ifdef USE_ESP32
 
@@ -19,6 +18,8 @@ namespace esphome
 {
   namespace danfoss_eco
   {
+    // Note: 'using namespace std' is generally discouraged in headers, 
+    // but kept here to maintain compatibility with existing properties.cpp logic.
     using namespace std;
     using namespace climate;
 
@@ -67,7 +68,8 @@ namespace esphome
       shared_ptr<ErrorsProperty> p_errors{nullptr};
       shared_ptr<SecretKeyProperty> p_secret_key{nullptr};
 
-      set<shared_ptr<DeviceProperty>> properties{nullptr};
+      // FIX: Explicitly using std::set
+      std::set<shared_ptr<DeviceProperty>> properties{};
 
     private:
       ESPPreferenceObject secret_pref_;

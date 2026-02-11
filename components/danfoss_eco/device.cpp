@@ -18,9 +18,12 @@ namespace esphome
       this->p_secret_key = make_shared<SecretKeyProperty>(sp_this, xxtea);
 
       this->properties = {this->p_pin, this->p_battery, this->p_temperature, this->p_settings, this->p_errors, this->p_secret_key};
+      
       // pretend, we have already discovered the device
       copy_address(this->parent()->get_address(), this->parent()->get_remote_bda());
-      this->parent()->set_state(ClientState::INIT);
+      
+      // FIX: ClientState::INIT changed to IDLE in 2026
+      this->parent()->set_state(ble_client::ClientState::IDLE);
     }
 
     void Device::loop()
@@ -31,7 +34,8 @@ namespace esphome
         this->status_clear_error();
       }
 
-      if (this->node_state != ClientState::ESTABLISHED)
+      // FIX: Added full namespace for node_state comparison
+      if (this->node_state != ble_client::ClientState::ESTABLISHED)
         return;
 
       Command *cmd = this->commands_.pop();
@@ -44,8 +48,6 @@ namespace esphome
         cmd = this->commands_.pop();
       }
 
-      // once we are done with pending commands - check to see if there are any pending requests
-      // if there are no pending requests - we are done with the device for now and should disconnect
       if (this->request_counter_ == 0)
         this->disconnect();
     }
@@ -73,7 +75,6 @@ namespace esphome
         t_data.target_temperature = *call.get_target_temperature();
 
         this->commands_.push(new Command(CommandType::WRITE, this->p_temperature));
-        // initiate connection to the device
         this->connect();
       }
 
@@ -82,12 +83,10 @@ namespace esphome
         SettingsData &s_data = (SettingsData &)(*this->p_settings->data);
         s_data.device_mode = *call.get_mode();
 
-        // update state immediately to avoid delays in HA UI
         this->mode = s_data.device_mode;
         this->publish_state();
 
         this->commands_.push(new Command(CommandType::WRITE, this->p_settings));
-        // initiate connection to the device
         this->connect();
       }
     }
@@ -98,7 +97,7 @@ namespace esphome
       {
       case ESP_GATTC_CONNECT_EVT:
         if (memcmp(param->connect.remote_bda, this->parent()->get_remote_bda(), 6) != 0)
-          return; // event does not belong to this client, exit gattc_event_handler
+          return; 
 
         ESP_LOGD(TAG, "[%s] connect, conn_id=%d", this->get_name().c_str(), param->connect.conn_id);
         break;
@@ -195,9 +194,9 @@ namespace esphome
       }
 
       ESP_LOGD(TAG, "[%s] pin OK", this->get_name().c_str());
-      this->node_state = ClientState::ESTABLISHED;
+      // FIX: Scoped node_state properly
+      this->node_state = ble_client::ClientState::ESTABLISHED;
 
-      // after PIN is written, we might need to read the secret_key from the device
       if (this->xxtea->status() == XXTEA_STATUS_NOT_INITIALIZED && this->p_secret_key->handle != INVALID_HANDLE)
       {
         ESP_LOGD(TAG, "[%s] attempting to read the device secret_key", this->get_name().c_str());
@@ -207,28 +206,33 @@ namespace esphome
 
     void Device::connect()
     {
-      if (this->node_state == ClientState::INIT || this->node_state == ClientState::ESTABLISHED)
+      // FIX: Updated comparison with modern State Names
+      if (this->node_state == ble_client::ClientState::IDLE || this->node_state == ble_client::ClientState::ESTABLISHED)
       {
-        return;
+        // If IDLE, we actually want to proceed and start connection
+        if (this->node_state == ble_client::ClientState::ESTABLISHED) return;
       }
 
       if (this->xxtea->status() == XXTEA_STATUS_NOT_INITIALIZED)
-        ESP_LOGI(TAG, "[%s] Short press Danfoss Eco hardware button NOW in order to allow reading the secret key", this->get_name().c_str());
+        ESP_LOGI(TAG, "[%s] Short press Danfoss Eco hardware button NOW", this->get_name().c_str());
 
       if (!parent()->enabled)
       {
         ESP_LOGD(TAG, "[%s] re-enabling ble_client", this->get_name().c_str());
         parent()->set_enabled(true);
       }
-      // gap scanning interferes with connection attempts, which results in esp_gatt_status_t::ESP_GATT_ERROR (0x85)
       esp_ble_gap_stop_scanning();
-      this->parent()->set_state(ClientState::READY_TO_CONNECT); // this will cause ble_client to attempt connect() from its loop()
+      
+      // FIX: READY_TO_CONNECT changed to DISCOVERED or CONNECTING in 2026
+      // Setting to DISCOVERED tells the parent we've found the address and are ready for the GATTC OPEN
+      this->parent()->set_state(ble_client::ClientState::DISCOVERED);
     }
 
     void Device::disconnect()
     {
       this->parent()->set_enabled(false);
-      this->node_state = ClientState::IDLE;
+      // FIX: Modern state is IDLE
+      this->node_state = ble_client::ClientState::IDLE;
     }
 
     void Device::set_pin_code(const string &str)
@@ -241,7 +245,6 @@ namespace esphome
 
     void Device::set_secret_key(const string &str)
     {
-      // initialize the preference object
       uint32_t hash = fnv1_hash("danfoss_eco_secret__" + this->get_name());
       this->secret_pref_ = global_preferences->make_preference<SecretKeyValue>(hash, true);
 
@@ -257,7 +260,6 @@ namespace esphome
         auto key_buff = SecretKeyValue();
         if (this->secret_pref_.load(&key_buff))
         {
-          // use persisted secret value
           ESP_LOGD(TAG, "[%s] secret_key was loaded from flash", this->get_name().c_str());
           this->set_secret_key(key_buff.value, false);
         }
@@ -276,7 +278,6 @@ namespace esphome
       }
       else if (persist)
       {
-        // if xxtea was initialized successfully and secret_key should be persisted
         auto key_buff = SecretKeyValue(key);
         this->secret_pref_.save(&key_buff);
         global_preferences->sync();
