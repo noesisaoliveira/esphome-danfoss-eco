@@ -19,11 +19,10 @@ class MyComponent : public climate::Climate, public PollingComponent, public std
   climate::ClimateTraits traits() override {
     auto traits = climate::ClimateTraits();
     
-    // 2026 Fix: Use explicit ClimateFeature enum
-    traits.add_feature_flags(climate::ClimateFeature::CLIMATE_FEATURE_CURRENT_TEMPERATURE);
-    traits.add_feature_flags(climate::ClimateFeature::CLIMATE_FEATURE_ACTION);
+    // 2026 Fix: Use the shorter enum names
+    traits.add_feature_flags(climate::ClimateFeature::CURRENT_TEMPERATURE);
+    traits.add_feature_flags(climate::ClimateFeature::ACTION);
 
-    // 2026 Fix: Use brace initialization for ClimateModeMask
     traits.set_supported_modes({
         climate::ClimateMode::CLIMATE_MODE_HEAT, 
         climate::ClimateMode::CLIMATE_MODE_AUTO

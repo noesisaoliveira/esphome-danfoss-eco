@@ -21,7 +21,7 @@ void Device::setup() {
   copy_address(this->parent()->get_address(), this->parent()->get_remote_bda());
   
   // 2026 Fix: ClientState::INIT is now IDLE
-  this->parent()->set_state(ble_client::ClientState::IDLE);
+  this->parent()->set_state(ble_client::BLEClientState::IDLE);
 }
 
 void Device::loop() {
@@ -31,7 +31,7 @@ void Device::loop() {
   }
 
   // 2026 Fix: Full namespace for state comparison
-  if (this->node_state != ble_client::ClientState::ESTABLISHED)
+  if (this->node_state != ble_client::BLEClientState::ESTABLISHED)
     return;
 
   Command *cmd = this->commands_.pop();
@@ -145,26 +145,26 @@ void Device::on_write_pin(esp_ble_gattc_cb_param_t::gattc_write_evt_param param)
     this->mark_failed();
     return;
   }
-  this->node_state = ble_client::ClientState::ESTABLISHED;
+  this->node_state = ble_client::BLEClientState::ESTABLISHED;
   if (this->xxtea->status() == XXTEA_STATUS_NOT_INITIALIZED && this->p_secret_key->handle != INVALID_HANDLE) {
     this->commands_.push(new Command(CommandType::READ, this->p_secret_key));
   }
 }
 
 void Device::connect() {
-  if (this->node_state == ble_client::ClientState::ESTABLISHED) return;
+  if (this->node_state == ble_client::BLEClientState::ESTABLISHED) return;
 
   if (!parent()->enabled) {
     parent()->set_enabled(true);
   }
   esp_ble_gap_stop_scanning();
   // 2026 Fix: READY_TO_CONNECT is now DISCOVERED
-  this->parent()->set_state(ble_client::ClientState::DISCOVERED);
+  this->parent()->set_state(ble_client::BLEClientState::DISCOVERED);
 }
 
 void Device::disconnect() {
   this->parent()->set_enabled(false);
-  this->node_state = ble_client::ClientState::IDLE;
+  this->node_state = ble_client::BLEClientState::IDLE;
 }
 
 void Device::set_pin_code(const std::string &str) {
