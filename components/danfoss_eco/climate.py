@@ -17,9 +17,6 @@ from esphome.const import (
     DEVICE_CLASS_PROBLEM
 )
 
-# Accessing the climate schema via the component directly
-from esphome.components.climate import CLIMATE_SCHEMA
-
 CODEOWNERS = ["@dmitry-cherkas"]
 DEPENDENCIES = ["ble_client"]
 AUTO_LOAD = ["sensor", "binary_sensor", "esp32_ble_tracker"]
@@ -47,11 +44,12 @@ def validate_pin(value):
         raise cv.Invalid("PIN code should be numeric")
     return value
 
-# FIX: Using the direct imported CLIMATE_SCHEMA constant
+# FIX: In 2026, we use climate.CLIMATE_SCHEMA (if it exists) 
+# or climate_schema(DanfossEco) which is more robust.
 CONFIG_SCHEMA = (
-    CLIMATE_SCHEMA.extend(
+    climate.climate_schema(DanfossEco)
+    .extend(
         {
-            cv.GenerateID(): cv.declare_id(DanfossEco),
             cv.Optional(CONF_SECRET_KEY): validate_secret,
             cv.Optional(CONF_PIN_CODE): validate_pin,
             cv.Optional(CONF_BATTERY_LEVEL): sensor.sensor_schema(
