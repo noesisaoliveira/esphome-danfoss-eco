@@ -24,8 +24,8 @@ void Device::setup() {
 }
 
 void Device::loop() {
-  // Fix: Correct namespace for ClientState
-  if (this->parent_->node_state != esp32_ble_client::ClientState::ESTABLISHED) {
+  // Fixed: Correct namespace for ClientState in newer ESPHome versions
+  if (this->parent_->node_state != esp32_ble_tracker::ClientState::ESTABLISHED) {
     while (!this->commands_.empty()) {
       delete this->commands_.front();
       this->commands_.pop();
@@ -43,7 +43,7 @@ void Device::loop() {
 }
 
 void Device::update() {
-  if (this->parent_->node_state != esp32_ble_client::ClientState::ESTABLISHED) return;
+  if (this->parent_->node_state != esp32_ble_tracker::ClientState::ESTABLISHED) return;
 
   this->commands_.push(new Command(CommandType::READ, this->p_temperature_));
   this->commands_.push(new Command(CommandType::READ, this->p_battery_));
@@ -96,15 +96,14 @@ void Device::write_pin() {
 }
 
 void Device::set_pin_code(const std::string &str) {
-  // Removed try/catch for compatibility
   this->pin_code_ = (uint32_t) strtoul(str.c_str(), nullptr, 10);
 }
 
 void Device::set_secret_key(const std::string &str) {
   uint8_t key[16];
-  if (parse_hex(str, key, 16)) {
-    this->set_secret_key(key, false);
-  }
+  // Fixed: Use parse_hex_str instead of parse_hex
+  parse_hex_str(str.c_str(), str.length(), key);
+  this->set_secret_key(key, false);
 }
 
 void Device::set_secret_key(uint8_t *key, bool persist) {

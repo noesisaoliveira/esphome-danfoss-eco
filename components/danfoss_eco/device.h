@@ -43,7 +43,7 @@ class Device {
   void set_secret_key(uint8_t *key, bool persist);
 
  protected:
-  void write_pin(); // This was missing!
+  void write_pin();
 
   MyComponent *parent_;
   std::shared_ptr<Xxtea> xxtea_;

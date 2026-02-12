@@ -3,7 +3,6 @@ import esphome.config_validation as cv
 from esphome.components import climate, ble_client, sensor, binary_sensor
 from esphome.const import (
     CONF_ID,
-    CONF_NAME,
     CONF_TEMPERATURE,
     CONF_BATTERY_LEVEL,
     CONF_ENTITY_CATEGORY,
@@ -27,7 +26,7 @@ CONF_PROBLEMS = 'problems'
 
 eco_ns = cg.esphome_ns.namespace("danfoss_eco")
 DanfossEco = eco_ns.class_(
-    "Device", climate.Climate, ble_client.BLEClientNode, cg.PollingComponent
+    "MyComponent", climate.Climate, ble_client.BLEClientNode, cg.PollingComponent
 )
 
 def validate_secret(value):
@@ -45,9 +44,9 @@ def validate_pin(value):
     return value
 
 CONFIG_SCHEMA = (
-    climate.climate_schema(DanfossEco)
-    .extend(
+    climate.CLIMATE_SCHEMA.extend(
         {
+            cv.GenerateID(): cv.declare_id(DanfossEco),
             cv.Optional(CONF_SECRET_KEY): validate_secret,
             cv.Optional(CONF_PIN_CODE): validate_pin,
             cv.Optional(CONF_BATTERY_LEVEL): sensor.sensor_schema(
@@ -69,7 +68,7 @@ CONFIG_SCHEMA = (
             )
         }
     )
-    .extend(ble_client.BLE_CLIENT_SCHEMA if hasattr(ble_client, 'BLE_CLIENT_SCHEMA') else ble_client.SCHEMA)
+    .extend(ble_client.BLE_CLIENT_SCHEMA)
     .extend(cv.polling_component_schema("60s"))
 )
 
