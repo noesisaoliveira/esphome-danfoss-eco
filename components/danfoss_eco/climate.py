@@ -43,7 +43,7 @@ def validate_pin(value):
         raise cv.Invalid("PIN code should be numeric")
     return value
 
-CONFIG_SCHEMA = (
+CONFIG_SCHEMA = cv.All(
     climate.CLIMATE_SCHEMA.extend(
         {
             cv.GenerateID(): cv.declare_id(DanfossEco),
@@ -68,9 +68,10 @@ CONFIG_SCHEMA = (
             )
         }
     )
-    .extend(ble_client.BLE_CLIENT_SCHEMA)
     .extend(cv.polling_component_schema("60s"))
+    .extend(ble_client.BLE_CLIENT_SCHEMA)
 )
+
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
