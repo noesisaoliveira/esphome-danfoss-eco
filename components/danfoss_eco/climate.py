@@ -3,7 +3,6 @@ import esphome.config_validation as cv
 from esphome.components import climate, ble_client, sensor, binary_sensor
 from esphome.const import (
     CONF_ID,
-    CONF_NAME,
     CONF_TEMPERATURE,
     CONF_BATTERY_LEVEL,
     CONF_ENTITY_CATEGORY,
@@ -16,6 +15,8 @@ from esphome.const import (
     DEVICE_CLASS_TEMPERATURE,
     DEVICE_CLASS_PROBLEM
 )
+from esphome import automation
+from esphome.core import CORE
 
 CODEOWNERS = ["@dmitry-cherkas"]
 DEPENDENCIES = ["ble_client"]
@@ -44,11 +45,10 @@ def validate_pin(value):
         raise cv.Invalid("PIN code should be numeric")
     return value
 
-CONFIG_SCHEMA = cv.All(
-    cv.Schema(
+CONFIG_SCHEMA = (
+    climate.CLIMATE_SCHEMA.extend(
         {
             cv.GenerateID(): cv.declare_id(DanfossEco),
-            cv.Optional(CONF_NAME): cv.string,
             cv.Optional(CONF_SECRET_KEY): validate_secret,
             cv.Optional(CONF_PIN_CODE): validate_pin,
             cv.Optional(CONF_BATTERY_LEVEL): sensor.sensor_schema(
@@ -70,7 +70,6 @@ CONFIG_SCHEMA = cv.All(
             )
         }
     )
-    .extend(cv.COMPONENT_SCHEMA)
     .extend(ble_client.BLE_CLIENT_SCHEMA)
     .extend(cv.polling_component_schema("60s"))
 )
@@ -81,9 +80,6 @@ async def to_code(config):
     await cg.register_component(var, config)
     await climate.register_climate(var, config)
     await ble_client.register_ble_node(var, config)
-    
-    if CONF_NAME in config:
-        cg.add(var.set_name(config[CONF_NAME]))
     
     if CONF_SECRET_KEY in config:
         cg.add(var.set_secret_key(config[CONF_SECRET_KEY]))
