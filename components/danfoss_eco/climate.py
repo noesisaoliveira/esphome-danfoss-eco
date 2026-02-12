@@ -43,7 +43,7 @@ def validate_pin(value):
         raise cv.Invalid("PIN code should be numeric")
     return value
 
-CONFIG_SCHEMA = (
+CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(DanfossEco),
