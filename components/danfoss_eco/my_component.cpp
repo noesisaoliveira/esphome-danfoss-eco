@@ -31,14 +31,15 @@ void MyComponent::control(const climate::ClimateCall &call) {
 
 climate::ClimateTraits MyComponent::traits() {
   auto traits = climate::ClimateTraits();
-  traits.set_supports_current_temperature(true);
-  traits.set_supports_target_temperature(true);
-  traits.set_supports_action(true);
   
   traits.set_visual_min_temperature(this->visual_min_temp_);
   traits.set_visual_max_temperature(this->visual_max_temp_);
   traits.set_visual_temperature_step(0.5f);
+  
   traits.set_supported_modes({climate::CLIMATE_MODE_HEAT, climate::CLIMATE_MODE_AUTO});
+  
+  traits.add_supported_custom_preset(climate::CLIMATE_PRESET_NONE);
+  
   return traits;
 }
 void MyComponent::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param) {
