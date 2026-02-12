@@ -13,7 +13,10 @@ from esphome.const import (
     CONF_DEVICE_CLASS,
     DEVICE_CLASS_BATTERY,
     DEVICE_CLASS_TEMPERATURE,
-    DEVICE_CLASS_PROBLEM
+    DEVICE_CLASS_PROBLEM,
+)
+from esphome.components.climate.const import (
+    CONF_VISUAL,
 )
 
 CODEOWNERS = ["@dmitry-cherkas"]
@@ -48,6 +51,7 @@ CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(DanfossEco),
+            cv.Optional(CONF_VISUAL, default={}): cv.Schema({}),
             cv.Optional(CONF_SECRET_KEY): validate_secret,
             cv.Optional(CONF_PIN_CODE): validate_pin,
             cv.Optional(CONF_BATTERY_LEVEL): sensor.sensor_schema(
