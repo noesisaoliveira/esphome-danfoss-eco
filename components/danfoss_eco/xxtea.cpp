@@ -1,6 +1,54 @@
 #include "xxtea.h"
-#include <xxtea-iot-crypt.h>
 #include <string.h>
+
+#define MX (((z >> 5) ^ (y << 2)) + ((y >> 3) ^ (z << 4))) ^ ((sum ^ y) + (k[(p & 3) ^ e] ^ z))
+
+// XXTEA block tea algorithm (Corrected Block TEA)
+void Xxtea::btea(uint32_t *v, int32_t n, uint32_t const k[4])
+{
+    uint32_t y, z, sum;
+    uint32_t p, rounds, e;
+
+    if (n > 1)
+    {
+        // Encryption
+        rounds = 6 + 52 / n;
+        sum = 0;
+        z = v[n - 1];
+        do
+        {
+            sum += XXTEA_DELTA;
+            e = (sum >> 2) & 3;
+            for (p = 0; p < (uint32_t)n - 1; p++)
+            {
+                y = v[p + 1];
+                z = v[p] += MX;
+            }
+            y = v[0];
+            z = v[n - 1] += MX;
+        } while (--rounds);
+    }
+    else if (n < -1)
+    {
+        // Decryption
+        n = -n;
+        rounds = 6 + 52 / n;
+        sum = rounds * XXTEA_DELTA;
+        y = v[0];
+        do
+        {
+            e = (sum >> 2) & 3;
+            for (p = n - 1; p > 0; p--)
+            {
+                z = v[p - 1];
+                y = v[p] -= MX;
+            }
+            z = v[n - 1];
+            y = v[0] -= MX;
+            sum -= XXTEA_DELTA;
+        } while (--rounds);
+    }
+}
 
 int Xxtea::set_key(uint8_t *key, size_t len)
 {
@@ -36,8 +84,6 @@ int Xxtea::set_key(uint8_t *key, size_t len)
 
 int Xxtea::encrypt(uint8_t *data, size_t len, uint8_t *buf, size_t *maxlen)
 {
-    int ret = XXTEA_STATUS_GENERAL_ERROR;
-    
     if (data == NULL || len <= 0 || len > MAX_XXTEA_DATA8 ||
         buf == NULL || maxlen == NULL || *maxlen <= 0 || *maxlen < len)
     {
@@ -60,7 +106,7 @@ int Xxtea::encrypt(uint8_t *data, size_t len, uint8_t *buf, size_t *maxlen)
     memcpy((void *)this->xxtea_data, (const void *)data, len);
 
     // Perform Encryption
-    xxtea_encrypt(this->xxtea_data, l, (const uint32_t *)this->xxtea_key);
+    btea(this->xxtea_data, l, this->xxtea_key);
 
     // Copy Encrypted Data back to buffer
     memcpy((void *)buf, (const void *)this->xxtea_data, (l * 4));
@@ -91,7 +137,7 @@ int Xxtea::decrypt(uint8_t *data, size_t len)
     int32_t l = -((int32_t)len / 4);
     
     // Perform Decryption
-    xxtea_decrypt(this->xxtea_data, l, (const uint32_t *)this->xxtea_key);
+    btea(this->xxtea_data, l, this->xxtea_key);
     
     // Copy Decrypted Data back to buffer
     memcpy((void *)data, (const void *)this->xxtea_data, len);

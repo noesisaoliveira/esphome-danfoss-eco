@@ -1,6 +1,7 @@
 #pragma once
 
-#include <xxtea-iot-crypt.h>
+#include <stdint.h>
+#include <stddef.h>
 
 // key Size is always fixed
 #define MAX_XXTEA_KEY8 16
@@ -16,6 +17,8 @@
 #define XXTEA_STATUS_PARAMETER_ERROR -3
 #define XXTEA_STATUS_SIZE_ERROR -4
 
+#define XXTEA_DELTA 0x9E3779B9
+
 class Xxtea
 {
 public:
@@ -29,6 +32,8 @@ public:
     int status() { return this->status_; }
 
 private:
+    void btea(uint32_t *v, int32_t n, uint32_t const k[4]);
+    
     int status_;
     uint32_t xxtea_data[MAX_XXTEA_DATA32];
     uint32_t xxtea_key[MAX_XXTEA_KEY32];
