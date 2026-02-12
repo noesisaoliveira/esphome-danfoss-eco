@@ -28,7 +28,7 @@ CONF_VISUAL = 'visual'
 
 eco_ns = cg.esphome_ns.namespace("danfoss_eco")
 DanfossEco = eco_ns.class_(
-    "MyComponent", climate.Climate, ble_client.BLEClientNode, cg.PollingComponent
+    "MyComponent", climate.Climate, ble_client.BLEClientNode, cg.Component
 )
 
 def validate_secret(value):
@@ -75,7 +75,6 @@ CONFIG_SCHEMA = cv.All(
     .extend(cv.COMPONENT_SCHEMA)
     .extend(cv.ENTITY_BASE_SCHEMA)
     .extend(ble_client.BLE_CLIENT_SCHEMA)
-    .extend(cv.polling_component_schema("60s"))
 )
 
 
@@ -84,10 +83,6 @@ async def to_code(config):
     await cg.register_component(var, config)
     await climate.register_climate(var, config)
     await ble_client.register_ble_node(var, config)
-    
-    # Handle update_interval from PollingComponent
-    if CONF_UPDATE_INTERVAL in config:
-        cg.add(var.set_update_interval(config[CONF_UPDATE_INTERVAL]))
     
     if CONF_SECRET_KEY in config:
         cg.add(var.set_secret_key(config[CONF_SECRET_KEY]))
