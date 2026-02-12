@@ -15,9 +15,6 @@ from esphome.const import (
     DEVICE_CLASS_TEMPERATURE,
     DEVICE_CLASS_PROBLEM,
 )
-from esphome.components.climate.const import (
-    CONF_VISUAL,
-)
 
 CODEOWNERS = ["@dmitry-cherkas"]
 DEPENDENCIES = ["ble_client"]
@@ -26,6 +23,7 @@ AUTO_LOAD = ["sensor", "binary_sensor", "esp32_ble_tracker"]
 CONF_PIN_CODE = 'pin_code'
 CONF_SECRET_KEY = 'secret_key'
 CONF_PROBLEMS = 'problems'
+CONF_VISUAL = 'visual'
 
 eco_ns = cg.esphome_ns.namespace("danfoss_eco")
 DanfossEco = eco_ns.class_(
