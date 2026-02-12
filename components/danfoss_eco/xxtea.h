@@ -1,15 +1,20 @@
 #pragma once
 
-#include <xxtea-lib.h>
+#include <xxtea-iot-crypt.h>
 
 // key Size is always fixed
 #define MAX_XXTEA_KEY8 16
 // 32 Bit
 #define MAX_XXTEA_KEY32 4
 // DWORD Size of Data Buffer
-#define MAX_XXTEA_DATA32 (UINT32CALCBYTE(MAX_XXTEA_DATA8))
+#define MAX_XXTEA_DATA8 64
+#define MAX_XXTEA_DATA32 (MAX_XXTEA_DATA8 / 4)
 
 #define XXTEA_STATUS_NOT_INITIALIZED -1
+#define XXTEA_STATUS_SUCCESS 0
+#define XXTEA_STATUS_GENERAL_ERROR -2
+#define XXTEA_STATUS_PARAMETER_ERROR -3
+#define XXTEA_STATUS_SIZE_ERROR -4
 
 class Xxtea
 {
