@@ -15,8 +15,6 @@ from esphome.const import (
     DEVICE_CLASS_TEMPERATURE,
     DEVICE_CLASS_PROBLEM
 )
-from esphome import automation
-from esphome.core import CORE
 
 CODEOWNERS = ["@dmitry-cherkas"]
 DEPENDENCIES = ["ble_client"]
@@ -45,8 +43,9 @@ def validate_pin(value):
         raise cv.Invalid("PIN code should be numeric")
     return value
 
-CONFIG_SCHEMA = (
-    climate.CLIMATE_SCHEMA.extend(
+# Build schema manually since CLIMATE_SCHEMA doesn't exist in this version
+CONFIG_SCHEMA = cv.All(
+    cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(DanfossEco),
             cv.Optional(CONF_SECRET_KEY): validate_secret,
@@ -70,6 +69,8 @@ CONFIG_SCHEMA = (
             )
         }
     )
+    .extend(cv.COMPONENT_SCHEMA)
+    .extend(cv.ENTITY_BASE_SCHEMA)
     .extend(ble_client.BLE_CLIENT_SCHEMA)
     .extend(cv.polling_component_schema("60s"))
 )
