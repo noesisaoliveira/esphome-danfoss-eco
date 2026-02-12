@@ -43,8 +43,8 @@ def validate_pin(value):
         raise cv.Invalid("PIN code should be numeric")
     return value
 
-CONFIG_SCHEMA = cv.All(
-    climate.CLIMATE_SCHEMA.extend(
+CONFIG_SCHEMA = (
+    cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(DanfossEco),
             cv.Optional(CONF_SECRET_KEY): validate_secret,
@@ -68,8 +68,9 @@ CONFIG_SCHEMA = cv.All(
             )
         }
     )
-    .extend(cv.polling_component_schema("60s"))
+    .extend(cv.COMPONENT_SCHEMA)
     .extend(ble_client.BLE_CLIENT_SCHEMA)
+    .extend(cv.polling_component_schema("60s"))
 )
 
 
