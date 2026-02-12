@@ -13,7 +13,8 @@ from esphome.const import (
     CONF_DEVICE_CLASS,
     DEVICE_CLASS_BATTERY,
     DEVICE_CLASS_TEMPERATURE,
-    DEVICE_CLASS_PROBLEM
+    DEVICE_CLASS_PROBLEM,
+    CONF_UPDATE_INTERVAL,
 )
 
 CODEOWNERS = ["@dmitry-cherkas"]
@@ -83,6 +84,10 @@ async def to_code(config):
     await cg.register_component(var, config)
     await climate.register_climate(var, config)
     await ble_client.register_ble_node(var, config)
+    
+    # Handle update_interval from PollingComponent
+    if CONF_UPDATE_INTERVAL in config:
+        cg.add(var.set_update_interval(config[CONF_UPDATE_INTERVAL]))
     
     if CONF_SECRET_KEY in config:
         cg.add(var.set_secret_key(config[CONF_SECRET_KEY]))
