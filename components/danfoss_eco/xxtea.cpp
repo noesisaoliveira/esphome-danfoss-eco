@@ -117,6 +117,13 @@ int Xxtea::encrypt(uint8_t *data, size_t len, uint8_t *buf, size_t *maxlen)
     return XXTEA_STATUS_SUCCESS;
 }
 
+// Overload for device_data.h - simpler interface
+int Xxtea::encrypt(uint8_t *data, size_t len, uint8_t *buf)
+{
+    size_t maxlen = MAX_XXTEA_DATA8;
+    return encrypt(data, len, buf, &maxlen);
+}
+
 int Xxtea::decrypt(uint8_t *data, size_t len)
 {
     if (data == NULL || len <= 0 || (len % 4) != 0)
@@ -141,6 +148,35 @@ int Xxtea::decrypt(uint8_t *data, size_t len)
     
     // Copy Decrypted Data back to buffer
     memcpy((void *)data, (const void *)this->xxtea_data, len);
+    
+    return XXTEA_STATUS_SUCCESS;
+}
+
+// Overload for device_data.h - decrypt to separate buffer
+int Xxtea::decrypt(uint8_t *data, size_t len, uint8_t *buf)
+{
+    if (data == NULL || len <= 0 || (len % 4) != 0 || buf == NULL)
+    {
+        return XXTEA_STATUS_PARAMETER_ERROR;
+    }
+    
+    if (len > MAX_XXTEA_DATA8)
+    {
+        return XXTEA_STATUS_SIZE_ERROR;
+    }
+    
+    // Copy the Data into Processing Array
+    memset((void *)this->xxtea_data, 0, MAX_XXTEA_DATA8);
+    memcpy((void *)this->xxtea_data, (const void *)data, len);
+    
+    // Get the Actual Size in 32bits - Negative for Decryption
+    int32_t l = -((int32_t)len / 4);
+    
+    // Perform Decryption
+    btea(this->xxtea_data, l, this->xxtea_key);
+    
+    // Copy Decrypted Data to output buffer
+    memcpy((void *)buf, (const void *)this->xxtea_data, len);
     
     return XXTEA_STATUS_SUCCESS;
 }

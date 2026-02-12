@@ -27,7 +27,9 @@ public:
     int set_key(uint8_t *key, size_t len);
 
     int encrypt(uint8_t *data, size_t len, uint8_t *buf, size_t *maxlen);
+    int encrypt(uint8_t *data, size_t len, uint8_t *buf);  // Overload for device_data.h
     int decrypt(uint8_t *data, size_t len);
+    int decrypt(uint8_t *data, size_t len, uint8_t *buf);  // Overload for device_data.h
 
     int status() { return this->status_; }
 
