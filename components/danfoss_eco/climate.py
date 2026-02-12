@@ -13,7 +13,7 @@ from esphome.const import (
     CONF_DEVICE_CLASS,
     DEVICE_CLASS_BATTERY,
     DEVICE_CLASS_TEMPERATURE,
-    DEVICE_CLASS_PROBLEM,
+    DEVICE_CLASS_PROBLEM
 )
 
 CODEOWNERS = ["@dmitry-cherkas"]
@@ -23,7 +23,6 @@ AUTO_LOAD = ["sensor", "binary_sensor", "esp32_ble_tracker"]
 CONF_PIN_CODE = 'pin_code'
 CONF_SECRET_KEY = 'secret_key'
 CONF_PROBLEMS = 'problems'
-CONF_VISUAL = 'visual'
 
 eco_ns = cg.esphome_ns.namespace("danfoss_eco")
 DanfossEco = eco_ns.class_(
@@ -49,7 +48,6 @@ CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(DanfossEco),
-            cv.Optional(CONF_VISUAL, default={}): cv.Schema({}),
             cv.Optional(CONF_SECRET_KEY): validate_secret,
             cv.Optional(CONF_PIN_CODE): validate_pin,
             cv.Optional(CONF_BATTERY_LEVEL): sensor.sensor_schema(

@@ -2,31 +2,11 @@
 
 #include "esphome/components/ble_client/ble_client.h"
 #include "properties.h"
+#include "command.h"
 #include <queue>
 
 namespace esphome {
 namespace danfoss_eco {
-
-enum class CommandType { READ, WRITE };
-
-struct Command {
-  CommandType type;
-  std::shared_ptr<DeviceProperty> property;
-  Command(CommandType t, std::shared_ptr<DeviceProperty> p) : type(t), property(p) {}
-  
-  bool execute(ble_client::BLEClient *client) {
-    if (property->handle == 0xFFFF) return false;
-    if (type == CommandType::READ) {
-      return property->read_request(client);
-    } else {
-      if (property->prop_type == TYPE_WRITABLE) {
-        auto writable = std::static_pointer_cast<WritableProperty>(property);
-        return writable->write_request(client);
-      }
-      return false;
-    }
-  }
-};
 
 class Device {
  public:

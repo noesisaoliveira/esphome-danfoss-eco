@@ -3,11 +3,8 @@
 #include <stdint.h>
 #include <stddef.h>
 
-// key Size is always fixed
 #define MAX_XXTEA_KEY8 16
-// 32 Bit
 #define MAX_XXTEA_KEY32 4
-// DWORD Size of Data Buffer
 #define MAX_XXTEA_DATA8 64
 #define MAX_XXTEA_DATA32 (MAX_XXTEA_DATA8 / 4)
 
@@ -27,9 +24,9 @@ public:
     int set_key(uint8_t *key, size_t len);
 
     int encrypt(uint8_t *data, size_t len, uint8_t *buf, size_t *maxlen);
-    int encrypt(uint8_t *data, size_t len, uint8_t *buf);  // Overload for device_data.h
+    int encrypt(uint8_t *data, size_t len, uint8_t *buf);
     int decrypt(uint8_t *data, size_t len);
-    int decrypt(uint8_t *data, size_t len, uint8_t *buf);  // Overload for device_data.h
+    int decrypt(uint8_t *data, size_t len, uint8_t *buf);
 
     int status() { return this->status_; }
 

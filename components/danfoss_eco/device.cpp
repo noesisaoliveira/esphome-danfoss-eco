@@ -24,7 +24,6 @@ void Device::setup() {
 }
 
 void Device::loop() {
-  // Fixed: Correct namespace for ClientState in newer ESPHome versions
   if (this->parent_->node_state != esp32_ble_tracker::ClientState::ESTABLISHED) {
     while (!this->commands_.empty()) {
       delete this->commands_.front();
@@ -54,7 +53,6 @@ void Device::control(const climate::ClimateCall &call) {
     float temp = *call.get_target_temperature();
     auto data = std::make_unique<TemperatureData>(this->xxtea_);
     data->target_temperature = temp;
-    // Current temperature is needed for the pack() encryption block
     data->room_temperature = this->parent_->current_temperature; 
     
     this->p_temperature_->data = std::move(data);
@@ -101,7 +99,6 @@ void Device::set_pin_code(const std::string &str) {
 
 void Device::set_secret_key(const std::string &str) {
   uint8_t key[16];
-  // Fixed: Use parse_hex_str instead of parse_hex
   parse_hex_str(str.c_str(), str.length(), key);
   this->set_secret_key(key, false);
 }
