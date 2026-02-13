@@ -11,10 +11,18 @@ void MyComponent::setup() {
   this->xxtea_instance_ = std::make_shared<Xxtea>();
   this->device_ = std::make_shared<Device>(this, this->xxtea_instance_);
   this->device_->setup();
+  this->last_update_ = 0;
 }
 
 void MyComponent::loop() {
   this->device_->loop();
+  
+  // Call update every 60 seconds
+  uint32_t now = millis();
+  if (now - this->last_update_ > 60000) {
+    this->device_->update();
+    this->last_update_ = now;
+  }
 }
 
 void MyComponent::update() {

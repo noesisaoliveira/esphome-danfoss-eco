@@ -53,6 +53,8 @@ class MyComponent : public climate::Climate, public esphome::ble_client::BLEClie
 
   float visual_min_temp_{5.0f};
   float visual_max_temp_{35.0f};
+  
+  uint32_t last_update_{0};
 };
 
 } // namespace danfoss_eco
