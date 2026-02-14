@@ -8,16 +8,26 @@ namespace danfoss_eco {
 static const char *const TAG = "danfoss_eco.climate";
 
 void MyComponent::setup() {
+  ESP_LOGD(TAG, "MyComponent::setup() starting");
+  
   this->xxtea_instance_ = std::make_shared<Xxtea>();
+  ESP_LOGD(TAG, "XXTEA instance created");
+  
   this->device_ = std::make_shared<Device>(this, this->xxtea_instance_);
+  ESP_LOGD(TAG, "Device instance created");
   
   // Apply pending secret key if it was set before device was created
   if (!this->pending_secret_key_.empty()) {
+    ESP_LOGD(TAG, "Applying pending secret key: %s", this->pending_secret_key_.c_str());
     this->device_->set_secret_key(this->pending_secret_key_);
+  } else {
+    ESP_LOGW(TAG, "WARNING: No pending secret key found!");
   }
   
   // Device is now fully constructed, safe to call methods
+  ESP_LOGD(TAG, "Calling device_->setup()");
   this->device_->setup();
+  ESP_LOGD(TAG, "MyComponent::setup() complete");
 }
 
 void MyComponent::loop() {
@@ -66,10 +76,12 @@ void MyComponent::set_pin_code(const std::string &pin) {
 }
 
 void MyComponent::set_secret_key(const std::string &key) {
+  ESP_LOGD(TAG, "MyComponent::set_secret_key called with key: %s", key.c_str());
   if (this->device_) {
+    ESP_LOGD(TAG, "Device exists, calling device_->set_secret_key");
     this->device_->set_secret_key(key);
   } else {
-    // Store for later if device not initialized yet
+    ESP_LOGD(TAG, "Device doesn't exist yet, storing as pending_secret_key_");
     this->pending_secret_key_ = key;
   }
 }

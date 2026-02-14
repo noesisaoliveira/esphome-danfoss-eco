@@ -12,9 +12,13 @@ void Device::setup() {
 
   // Apply secret key if it was set before setup
   if (!this->pending_secret_key_.empty()) {
+    ESP_LOGD(TAG, "Applying pending secret key: %s", this->pending_secret_key_.c_str());
     uint8_t key[16];
     parse_hex_str(this->pending_secret_key_.c_str(), this->pending_secret_key_.length(), key);
     xxtea->set_key(key, 16);
+    ESP_LOGD(TAG, "Secret key applied successfully");
+  } else {
+    ESP_LOGW(TAG, "No secret key set! Communication will fail.");
   }
 
   this->p_pin_ = std::make_shared<WritableProperty>(this->parent_, xxtea, SERVICE_SETTINGS, CHARACTERISTIC_PIN);
@@ -49,8 +53,13 @@ void Device::loop() {
 }
 
 void Device::update() {
-  if (this->parent_->node_state != esp32_ble_tracker::ClientState::ESTABLISHED) return;
+  ESP_LOGD(TAG, "Device::update() called");
+  if (this->parent_->node_state != esp32_ble_tracker::ClientState::ESTABLISHED) {
+    ESP_LOGD(TAG, "BLE not connected, skipping update");
+    return;
+  }
 
+  ESP_LOGD(TAG, "Reading temperature and battery");
   this->commands_.push(new Command(CommandType::READ, this->p_temperature_));
   this->commands_.push(new Command(CommandType::READ, this->p_battery_));
 }
@@ -105,8 +114,10 @@ void Device::set_pin_code(const std::string &str) {
 }
 
 void Device::set_secret_key(const std::string &str) {
+  ESP_LOGD(TAG, "Device::set_secret_key called with: %s", str.c_str());
   // Store the key to be applied during setup()
   this->pending_secret_key_ = str;
+  ESP_LOGD(TAG, "Stored as pending_secret_key_");
 }
 
 void Device::set_secret_key(uint8_t *key, bool persist) {
