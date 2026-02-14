@@ -10,8 +10,14 @@ static const char *const TAG = "danfoss_eco.climate";
 void MyComponent::setup() {
   this->xxtea_instance_ = std::make_shared<Xxtea>();
   this->device_ = std::make_shared<Device>(this, this->xxtea_instance_);
+  
+  // Apply pending secret key if it was set before device was created
+  if (!this->pending_secret_key_.empty()) {
+    this->device_->set_secret_key(this->pending_secret_key_);
+  }
+  
+  // Device is now fully constructed, safe to call methods
   this->device_->setup();
-  this->last_update_ = 0;
 }
 
 void MyComponent::loop() {
@@ -54,15 +60,24 @@ void MyComponent::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t 
 }
 
 void MyComponent::set_pin_code(const std::string &pin) {
-  this->device_->set_pin_code(pin);
+  if (this->device_) {
+    this->device_->set_pin_code(pin);
+  }
 }
 
 void MyComponent::set_secret_key(const std::string &key) {
-  this->device_->set_secret_key(key);
+  if (this->device_) {
+    this->device_->set_secret_key(key);
+  } else {
+    // Store for later if device not initialized yet
+    this->pending_secret_key_ = key;
+  }
 }
 
 void MyComponent::set_secret_key(uint8_t *key, bool persist) {
-  this->device_->set_secret_key(key, persist);
+  if (this->device_) {
+    this->device_->set_secret_key(key, persist);
+  }
 }
 
 } // namespace danfoss_eco
