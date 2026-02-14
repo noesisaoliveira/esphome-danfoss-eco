@@ -31,6 +31,7 @@ class Device {
   std::queue<Command*> commands_;
   
   uint32_t pin_code_{0};
+  std::string pending_secret_key_;
 
   std::shared_ptr<WritableProperty> p_pin_;
   std::shared_ptr<BatteryProperty> p_battery_;

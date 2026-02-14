@@ -10,6 +10,13 @@ static const char *const TAG = "danfoss_eco.device";
 void Device::setup() {
   auto xxtea = this->xxtea_;
 
+  // Apply secret key if it was set before setup
+  if (!this->pending_secret_key_.empty()) {
+    uint8_t key[16];
+    parse_hex_str(this->pending_secret_key_.c_str(), this->pending_secret_key_.length(), key);
+    xxtea->set_key(key, 16);
+  }
+
   this->p_pin_ = std::make_shared<WritableProperty>(this->parent_, xxtea, SERVICE_SETTINGS, CHARACTERISTIC_PIN);
   this->p_battery_ = std::make_shared<BatteryProperty>(this->parent_, xxtea);
   this->p_temperature_ = std::make_shared<TemperatureProperty>(this->parent_, xxtea);
@@ -98,12 +105,15 @@ void Device::set_pin_code(const std::string &str) {
 }
 
 void Device::set_secret_key(const std::string &str) {
-  uint8_t key[16];
-  parse_hex_str(str.c_str(), str.length(), key);
-  this->set_secret_key(key, false);
+  // Store the key to be applied during setup()
+  this->pending_secret_key_ = str;
 }
 
 void Device::set_secret_key(uint8_t *key, bool persist) {
+  if (!this->xxtea_) {
+    ESP_LOGE(TAG, "XXTEA not initialized yet");
+    return;
+  }
   this->xxtea_->set_key(key, 16);
 }
 
