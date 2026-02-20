@@ -7,6 +7,14 @@
 namespace esphome {
 namespace danfoss_eco {
 
+void reverse_bytes_in_chunks(uint32_t *v, size_t count) {
+    for (size_t i = 0; i < count; i++) {
+        uint8_t *p = (uint8_t *)&v[i];
+        std::swap(p[0], p[3]);
+        std::swap(p[1], p[2]);
+    }
+}
+
 void Xxtea::btea(uint32_t *v, int32_t n, uint32_t const k[4]) {
     uint32_t y, z, sum;
     uint32_t p, rounds, e;
@@ -41,14 +49,6 @@ void Xxtea::btea(uint32_t *v, int32_t n, uint32_t const k[4]) {
     }
 }
 
-static void reverse_bytes_in_chunks(uint32_t *v, size_t count) {
-    for (size_t i = 0; i < count; i++) {
-        uint8_t *p = (uint8_t *)&v[i];
-        std::swap(p[0], p[3]);
-        std::swap(p[1], p[2]);
-    }
-}
-
 int Xxtea::set_key(uint8_t *key, size_t len) {
     if (key == nullptr || len != 16) return XXTEA_STATUS_PARAMETER_ERROR;
     memcpy(this->xxtea_key, key, 16);
@@ -59,14 +59,11 @@ int Xxtea::set_key(uint8_t *key, size_t len) {
 int Xxtea::encrypt(uint8_t *data, size_t len, uint8_t *buf, size_t *maxlen) {
     if (data == nullptr || len <= 0 || (len % 4) != 0) return XXTEA_STATUS_PARAMETER_ERROR;
     if (len > MAX_XXTEA_DATA8) return XXTEA_STATUS_SIZE_ERROR;
-
     memset(this->xxtea_data, 0, MAX_XXTEA_DATA8);
     memcpy(this->xxtea_data, data, len);
-
     reverse_bytes_in_chunks(this->xxtea_data, len / 4);
     btea(this->xxtea_data, (int32_t)(len / 4), this->xxtea_key);
     reverse_bytes_in_chunks(this->xxtea_data, len / 4);
-
     memcpy(buf, this->xxtea_data, len);
     *maxlen = len;
     return XXTEA_STATUS_SUCCESS;
@@ -80,14 +77,11 @@ int Xxtea::encrypt(uint8_t *data, size_t len, uint8_t *buf) {
 int Xxtea::decrypt(uint8_t *data, size_t len) {
     if (data == nullptr || len <= 0 || (len % 4) != 0) return XXTEA_STATUS_PARAMETER_ERROR;
     if (len > MAX_XXTEA_DATA8) return XXTEA_STATUS_SIZE_ERROR;
-
     memset(this->xxtea_data, 0, MAX_XXTEA_DATA8);
     memcpy(this->xxtea_data, data, len);
-
     reverse_bytes_in_chunks(this->xxtea_data, len / 4);
     btea(this->xxtea_data, -(int32_t)(len / 4), this->xxtea_key);
     reverse_bytes_in_chunks(this->xxtea_data, len / 4);
-
     memcpy(data, this->xxtea_data, len);
     return XXTEA_STATUS_SUCCESS;
 }
