@@ -44,10 +44,15 @@ void Device::loop() {
   }
 
   if (!this->commands_.empty()) {
+    ESP_LOGD(TAG, "Processing command from queue (queue size: %d)", this->commands_.size());
     Command *cmd = this->commands_.front();
-    if (cmd->execute(this->parent_->parent())) {
+    // MyComponent IS a BLEClientNode, so we pass it directly as the BLEClient
+    if (cmd->execute((ble_client::BLEClient*)this->parent_)) {
+      ESP_LOGD(TAG, "Command executed successfully, removing from queue");
       delete cmd;
       this->commands_.pop();
+    } else {
+      ESP_LOGD(TAG, "Command still pending, keeping in queue");
     }
   }
 }
