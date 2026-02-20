@@ -3,6 +3,16 @@
 
 #define MX (((z >> 5) ^ (y << 2)) + ((y >> 3) ^ (z << 4))) ^ ((sum ^ y) + (k[(p & 3) ^ e] ^ z))
 
+// Helper function to reverse 4-byte chunks (Danfoss protocol requirement)
+static void reverse_chunks(uint8_t *data, size_t len, uint8_t *output) {
+    for (size_t i = 0; i < len / 4; i++) {
+        output[i * 4 + 0] = data[i * 4 + 3];
+        output[i * 4 + 1] = data[i * 4 + 2];
+        output[i * 4 + 2] = data[i * 4 + 1];
+        output[i * 4 + 3] = data[i * 4 + 0];
+    }
+}
+
 void Xxtea::btea(uint32_t *v, int32_t n, uint32_t const k[4])
 {
     uint32_t y, z, sum;
@@ -88,12 +98,17 @@ int Xxtea::encrypt(uint8_t *data, size_t len, uint8_t *buf, size_t *maxlen)
         return XXTEA_STATUS_SIZE_ERROR;
     }
 
+    // CRITICAL: Reverse chunks BEFORE encryption (Danfoss protocol)
+    uint8_t reversed_input[MAX_XXTEA_DATA8];
+    reverse_chunks(data, len, reversed_input);
+
     memset((void *)this->xxtea_data, 0, MAX_XXTEA_DATA8);
-    memcpy((void *)this->xxtea_data, (const void *)data, len);
+    memcpy((void *)this->xxtea_data, (const void *)reversed_input, len);
 
     btea(this->xxtea_data, l, this->xxtea_key);
 
-    memcpy((void *)buf, (const void *)this->xxtea_data, (l * 4));
+    // CRITICAL: Reverse chunks AFTER encryption (Danfoss protocol)
+    reverse_chunks((uint8_t*)this->xxtea_data, l * 4, buf);
 
     *maxlen = l * 4;
 
@@ -118,14 +133,19 @@ int Xxtea::decrypt(uint8_t *data, size_t len)
         return XXTEA_STATUS_SIZE_ERROR;
     }
     
+    // CRITICAL: Reverse chunks BEFORE decryption (Danfoss protocol)
+    uint8_t reversed_input[MAX_XXTEA_DATA8];
+    reverse_chunks(data, len, reversed_input);
+    
     memset((void *)this->xxtea_data, 0, MAX_XXTEA_DATA8);
-    memcpy((void *)this->xxtea_data, (const void *)data, len);
+    memcpy((void *)this->xxtea_data, (const void *)reversed_input, len);
     
     int32_t l = -((int32_t)len / 4);
     
     btea(this->xxtea_data, l, this->xxtea_key);
     
-    memcpy((void *)data, (const void *)this->xxtea_data, len);
+    // CRITICAL: Reverse chunks AFTER decryption (Danfoss protocol)
+    reverse_chunks((uint8_t*)this->xxtea_data, len, data);
     
     return XXTEA_STATUS_SUCCESS;
 }
@@ -142,14 +162,19 @@ int Xxtea::decrypt(uint8_t *data, size_t len, uint8_t *buf)
         return XXTEA_STATUS_SIZE_ERROR;
     }
     
+    // CRITICAL: Reverse chunks BEFORE decryption (Danfoss protocol)
+    uint8_t reversed_input[MAX_XXTEA_DATA8];
+    reverse_chunks(data, len, reversed_input);
+    
     memset((void *)this->xxtea_data, 0, MAX_XXTEA_DATA8);
-    memcpy((void *)this->xxtea_data, (const void *)data, len);
+    memcpy((void *)this->xxtea_data, (const void *)reversed_input, len);
     
     int32_t l = -((int32_t)len / 4);
     
     btea(this->xxtea_data, l, this->xxtea_key);
     
-    memcpy((void *)buf, (const void *)this->xxtea_data, len);
+    // CRITICAL: Reverse chunks AFTER decryption (Danfoss protocol)
+    reverse_chunks((uint8_t*)this->xxtea_data, len, buf);
     
     return XXTEA_STATUS_SUCCESS;
 }
