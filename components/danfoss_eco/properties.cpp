@@ -9,7 +9,10 @@ static const char *const TAG = "danfoss_eco.prop";
 
 bool DeviceProperty::init_handle(ble_client::BLEClient *client) {
   auto chr = client->get_characteristic(this->service_uuid, this->characteristic_uuid);
-  if (chr == nullptr) return false;
+  if (chr == nullptr) {
+    ESP_LOGW(TAG, "Characteristic not found");
+    return false;
+  }
   this->handle = chr->handle;
   return true;
 }
@@ -54,7 +57,9 @@ void SettingsProperty::update_state(uint8_t *value, uint16_t value_len) {
 void ErrorsProperty::update_state(uint8_t *value, uint16_t value_len) {
   auto e_data = std::make_unique<ErrorsData>(this->xxtea_, value, value_len);
   bool problem = e_data->E9_VALVE_DOES_NOT_CLOSE || e_data->E14_LOW_BATTERY;
-  if (this->component_->problems()) this->component_->problems()->publish_state(problem);
+  if (this->component_->problems()) {
+      this->component_->problems()->publish_state(problem);
+  }
 }
 
 } // namespace danfoss_eco
