@@ -98,7 +98,7 @@ int Xxtea::encrypt(uint8_t *data, size_t len, uint8_t *buf, size_t *maxlen)
         return XXTEA_STATUS_SIZE_ERROR;
     }
 
-    // CRITICAL: Reverse chunks BEFORE encryption (Danfoss protocol)
+    //  CRITICAL: Reverse chunks BEFORE encryption (Danfoss protocol)
     uint8_t reversed_input[MAX_XXTEA_DATA8];
     reverse_chunks(data, len, reversed_input);
 
