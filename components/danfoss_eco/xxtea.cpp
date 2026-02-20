@@ -41,8 +41,6 @@ void Xxtea::btea(uint32_t *v, int32_t n, uint32_t const k[4]) {
     }
 }
 
-// Função auxiliar interna para inverter a ordem dos bytes em cada bloco de 32 bits
-// Essencial para manter a compatibilidade com a biblioteca Python do eTRV
 static void reverse_bytes_in_chunks(uint32_t *v, size_t count) {
     for (size_t i = 0; i < count; i++) {
         uint8_t *p = (uint8_t *)&v[i];
@@ -65,13 +63,8 @@ int Xxtea::encrypt(uint8_t *data, size_t len, uint8_t *buf, size_t *maxlen) {
     memset(this->xxtea_data, 0, MAX_XXTEA_DATA8);
     memcpy(this->xxtea_data, data, len);
 
-    // 1. Inverte bytes para Little Endian (esperado pelo algoritmo)
     reverse_bytes_in_chunks(this->xxtea_data, len / 4);
-    
-    // 2. Encripta
     btea(this->xxtea_data, (int32_t)(len / 4), this->xxtea_key);
-    
-    // 3. Inverte de volta para Big Endian (esperado pela válvula)
     reverse_bytes_in_chunks(this->xxtea_data, len / 4);
 
     memcpy(buf, this->xxtea_data, len);
@@ -79,7 +72,6 @@ int Xxtea::encrypt(uint8_t *data, size_t len, uint8_t *buf, size_t *maxlen) {
     return XXTEA_STATUS_SUCCESS;
 }
 
-// Sobrecarga necessária para o device_data.h
 int Xxtea::encrypt(uint8_t *data, size_t len, uint8_t *buf) {
     size_t ml = MAX_XXTEA_DATA8;
     return this->encrypt(data, len, buf, &ml);
@@ -100,7 +92,6 @@ int Xxtea::decrypt(uint8_t *data, size_t len) {
     return XXTEA_STATUS_SUCCESS;
 }
 
-// Sobrecarga para desencriptar para um buffer diferente
 int Xxtea::decrypt(uint8_t *data, size_t len, uint8_t *buf) {
     memcpy(buf, data, len);
     return this->decrypt(buf, len);

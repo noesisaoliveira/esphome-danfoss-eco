@@ -20,7 +20,6 @@ bool DeviceProperty::read_request(BLEClient *client) {
                                  this->handle, ESP_GATT_AUTH_REQ_NONE) == ESP_OK;
 }
 
-// Para chamadas do command.h (temperatura/settings)
 bool WritableProperty::write_request(BLEClient *client) {
   if (this->handle == 0 || this->data == nullptr) return false;
   auto *writable_data = static_cast<WritableData *>(this->data.get());
@@ -29,7 +28,6 @@ bool WritableProperty::write_request(BLEClient *client) {
   return this->write_request(client, buffer, writable_data->length);
 }
 
-// Para chamadas diretas (como o PIN)
 bool WritableProperty::write_request(BLEClient *client, uint8_t *data, uint16_t data_len) {
   if (this->handle == 0) return false;
   return esp_ble_gattc_write_char(client->get_gattc_if(), client->get_conn_id(), 
@@ -56,8 +54,9 @@ void TemperatureProperty::update_state(uint8_t *value, uint16_t value_len) {
 void SettingsProperty::update_state(uint8_t *value, uint16_t value_len) {
   auto s_data = std::make_unique<SettingsData>(this->xxtea_, value, value_len);
   this->component_->mode = s_data->device_mode;
-  this->component_->set_visual_min_temperature_override(s_data->temperature_min);
-  this->component_->set_visual_max_temperature_override(s_data->temperature_max);
+  // Corrigido para os nomes do teu device_data.h
+  this->component_->set_visual_min_temperature_override(s_data->frost_protection_temperature);
+  this->component_->set_visual_max_temperature_override(s_data->vacation_temperature);
   this->data = std::move(s_data);
   this->component_->publish_state();
 }
@@ -71,9 +70,7 @@ void ErrorsProperty::update_state(uint8_t *value, uint16_t value_len) {
   this->data = std::move(e_data);
 }
 
-void SecretKeyProperty::update_state(uint8_t *value, uint16_t value_len) {
-  // Opcional: log da chave recebida
-}
+void SecretKeyProperty::update_state(uint8_t *value, uint16_t value_len) {}
 
 } // namespace danfoss_eco
 } // namespace esphome

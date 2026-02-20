@@ -26,7 +26,7 @@ class DeviceProperty {
   uint16_t handle{0};
   esp32_ble_tracker::ESPBTUUID service_uuid;
   esp32_ble_tracker::ESPBTUUID characteristic_uuid;
-  std::unique_ptr<DeviceData> data; // Reposto: necessário para o update_state
+  std::unique_ptr<DeviceData> data;
 
   DeviceProperty(MyComponent *component, std::shared_ptr<Xxtea> xxtea, 
                  esp32_ble_tracker::ESPBTUUID service_uuid, 
@@ -45,9 +45,10 @@ class DeviceProperty {
 class WritableProperty : public DeviceProperty {
  public:
   using DeviceProperty::DeviceProperty;
-  // Corrigido: adicionado suporte para a chamada sem argumentos extras do command.h
   virtual bool write_request(BLEClient *client);
   virtual bool write_request(BLEClient *client, uint8_t *data, uint16_t data_len);
+  // Implementação vazia para permitir instanciar a classe para o PIN
+  void update_state(uint8_t *value, uint16_t value_len) override {}
 };
 
 class BatteryProperty : public DeviceProperty {
