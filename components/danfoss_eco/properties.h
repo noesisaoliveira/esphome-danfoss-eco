@@ -1,97 +1,63 @@
-#pragma once
-
-#include "esphome/components/ble_client/ble_client.h"
-#include "esphome/components/esp32_ble_tracker/esp32_ble_tracker.h"
-#include "my_component.h"
-#include "device_data.h"
-#include <memory>
+#include "properties.h"
+#include "esphome/core/log.h"
+#include "helpers.h"
 
 namespace esphome {
 namespace danfoss_eco {
 
-using BLEClient = ble_client::BLEClient;
+static const char *const TAG = "danfoss_eco.prop";
 
-// 1. UUIDs must be defined BEFORE the classes that use them
-static auto SERVICE_SETTINGS = esp32_ble_tracker::ESPBTUUID::from_raw("10020000-2749-0001-0000-00805f9b042f");
-static auto CHARACTERISTIC_PIN = esp32_ble_tracker::ESPBTUUID::from_raw("10020001-2749-0001-0000-00805f9b042f");
-static auto CHARACTERISTIC_SETTINGS = esp32_ble_tracker::ESPBTUUID::from_raw("10020003-2749-0001-0000-00805f9b042f");
-static auto CHARACTERISTIC_TEMPERATURE = esp32_ble_tracker::ESPBTUUID::from_raw("10020005-2749-0001-0000-00805f9b042f");
-static auto CHARACTERISTIC_ERRORS = esp32_ble_tracker::ESPBTUUID::from_raw("10020009-2749-0001-0000-00805f9b042f");
-static auto CHARACTERISTIC_SECRET_KEY = esp32_ble_tracker::ESPBTUUID::from_raw("1002000b-2749-0001-0000-00805f9b042f");
+bool DeviceProperty::init_handle(BLEClient *client) {
+  auto chr = client->get_characteristic(this->service_uuid, this->characteristic_uuid);
+  if (chr == nullptr) return false;
+  this->handle = chr->handle;
+  return true;
+}
 
-static auto SERVICE_BATTERY = esp32_ble_tracker::ESPBTUUID::from_uint32(0x180F);
-static auto CHARACTERISTIC_BATTERY = esp32_ble_tracker::ESPBTUUID::from_uint32(0x2A19);
+bool DeviceProperty::read_request(BLEClient *client) {
+  if (this->handle == 0) return false;
+  return esp_ble_gattc_read_char(client->get_gattc_if(), client->get_conn_id(), 
+                                 this->handle, ESP_GATT_AUTH_REQ_NONE) == ESP_OK;
+}
 
-const uint16_t INVALID_HANDLE_VAL = 0xFFFF;
-enum PropertyType { TYPE_READ_ONLY, TYPE_WRITABLE };
+bool WritableProperty::write_request(BLEClient *client, uint8_t *data, uint16_t data_len) {
+  if (this->handle == 0) return false;
+  return esp_ble_gattc_write_char(client->get_gattc_if(), client->get_conn_id(), 
+                                  this->handle, data_len, data, 
+                                  ESP_GATT_WRITE_TYPE_RSP, ESP_GATT_AUTH_REQ_NONE) == ESP_OK;
+}
 
-class DeviceProperty {
- public:
-  std::unique_ptr<DeviceData> data{nullptr};
-  uint16_t handle{INVALID_HANDLE_VAL};
-  PropertyType prop_type{TYPE_READ_ONLY};
-
-  DeviceProperty(MyComponent *component, std::shared_ptr<Xxtea> xxtea, 
-                 esp32_ble_tracker::ESPBTUUID s_uuid, esp32_ble_tracker::ESPBTUUID c_uuid) 
-      : component_(component), xxtea_(xxtea), service_uuid(s_uuid), characteristic_uuid(c_uuid) {}
-
-  virtual void update_state(uint8_t *value, uint16_t value_len){};
-  virtual bool init_handle(BLEClient *client);
-  bool read_request(BLEClient *client);
-
- protected:
-  MyComponent *component_;
-  std::shared_ptr<Xxtea> xxtea_;
-  esp32_ble_tracker::ESPBTUUID service_uuid;
-  esp32_ble_tracker::ESPBTUUID characteristic_uuid;
-};
-
-class WritableProperty : public DeviceProperty {
- public:
-  WritableProperty(MyComponent *component, std::shared_ptr<Xxtea> xxtea, 
-                   esp32_ble_tracker::ESPBTUUID s_uuid, esp32_ble_tracker::ESPBTUUID c_uuid) 
-      : DeviceProperty(component, xxtea, s_uuid, c_uuid) {
-      this->prop_type = TYPE_WRITABLE;
+void BatteryProperty::update_state(uint8_t *value, uint16_t value_len) {
+  if (value_len > 0) {
+    // Bateria não usa encriptação (use_encoding=False no Python)
+    float battery = (float)value[0];
+    if (this->component_->battery_level() != nullptr) {
+      this->component_->battery_level()->publish_state(battery);
+    }
   }
-  bool write_request(BLEClient *client);
-  bool write_request(BLEClient *client, uint8_t *data, uint16_t data_len);
-};
+}
 
-class BatteryProperty : public DeviceProperty {
- public:
-  BatteryProperty(MyComponent *component, std::shared_ptr<Xxtea> xxtea) 
-      : DeviceProperty(component, xxtea, SERVICE_BATTERY, CHARACTERISTIC_BATTERY) {}
-  void update_state(uint8_t *value, uint16_t value_len) override;
-};
+void TemperatureProperty::update_state(uint8_t *value, uint16_t value_len) {
+  auto t_data = std::make_unique<TemperatureData>(this->xxtea_, value, value_len);
+  if (this->component_->temperature() != nullptr) {
+    this->component_->temperature()->publish_state(t_data->room_temperature);
+  }
+  this->component_->target_temperature = t_data->target_temperature;
+  this->component_->publish_state();
+}
 
-class TemperatureProperty : public WritableProperty {
- public:
-  TemperatureProperty(MyComponent *component, std::shared_ptr<Xxtea> xxtea) 
-      : WritableProperty(component, xxtea, SERVICE_SETTINGS, CHARACTERISTIC_TEMPERATURE) {}
-  void update_state(uint8_t *value, uint16_t value_len) override;
-};
+void SettingsProperty::update_state(uint8_t *value, uint16_t value_len) {
+  auto s_data = std::make_unique<SettingsData>(this->xxtea_, value, value_len);
+  this->component_->mode = s_data->device_mode;
+  this->component_->publish_state();
+}
 
-class SettingsProperty : public WritableProperty {
- public:
-  SettingsProperty(MyComponent *component, std::shared_ptr<Xxtea> xxtea) 
-      : WritableProperty(component, xxtea, SERVICE_SETTINGS, CHARACTERISTIC_SETTINGS) {}
-  void update_state(uint8_t *value, uint16_t value_len) override;
-};
-
-class ErrorsProperty : public DeviceProperty {
- public:
-  ErrorsProperty(MyComponent *component, std::shared_ptr<Xxtea> xxtea) 
-      : DeviceProperty(component, xxtea, SERVICE_SETTINGS, CHARACTERISTIC_ERRORS) {}
-  void update_state(uint8_t *value, uint16_t value_len) override;
-};
-
-class SecretKeyProperty : public DeviceProperty {
- public:
-  SecretKeyProperty(MyComponent *component, std::shared_ptr<Xxtea> xxtea) 
-      : DeviceProperty(component, xxtea, SERVICE_SETTINGS, CHARACTERISTIC_SECRET_KEY) {}
-  void update_state(uint8_t *value, uint16_t value_len) override;
-  bool init_handle(BLEClient *client) override;
-};
+void ErrorsProperty::update_state(uint8_t *value, uint16_t value_len) {
+  // Erros costumam vir encriptados junto com outras flags
+  auto e_data = std::make_unique<ErrorsData>(this->xxtea_, value, value_len);
+  bool problem = e_data->E14_LOW_BATTERY || e_data->E9_VALVE_DOES_NOT_CLOSE;
+  if (this->component_->problems()) this->component_->problems()->publish_state(problem);
+}
 
 } // namespace danfoss_eco
 } // namespace esphome
