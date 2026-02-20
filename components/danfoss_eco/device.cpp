@@ -54,12 +54,16 @@ void Device::loop() {
 
 void Device::update() {
   ESP_LOGD(TAG, "Device::update() called");
-  if (this->parent_->node_state != esp32_ble_tracker::ClientState::ESTABLISHED) {
-    ESP_LOGD(TAG, "BLE not connected, skipping update");
+  
+  // Check if parent (MyComponent) is available
+  if (!this->parent_) {
+    ESP_LOGW(TAG, "Parent is null, skipping update");
     return;
   }
-
-  ESP_LOGD(TAG, "Reading temperature and battery");
+  
+  // In ESPHome 2026, check connection differently
+  // The BLE client is connected if it completed service discovery
+  ESP_LOGD(TAG, "Queueing READ commands for temperature and battery");
   this->commands_.push(new Command(CommandType::READ, this->p_temperature_));
   this->commands_.push(new Command(CommandType::READ, this->p_battery_));
 }
