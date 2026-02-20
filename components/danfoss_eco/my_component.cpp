@@ -31,10 +31,18 @@ void MyComponent::setup() {
 }
 
 void MyComponent::loop() {
+  static uint32_t last_log = 0;
+  uint32_t now = millis();
+  
+  // Log every 10 seconds to see if loop is running
+  if (now - last_log > 10000) {
+    ESP_LOGD(TAG, "MyComponent::loop() running, node_state=%d", this->node_state);
+    last_log = now;
+  }
+  
   this->device_->loop();
   
   // Call update every 60 seconds
-  uint32_t now = millis();
   if (now - this->last_update_ > 60000) {
     this->device_->update();
     this->last_update_ = now;

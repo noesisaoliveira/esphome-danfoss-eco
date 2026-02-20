@@ -46,8 +46,8 @@ void Device::loop() {
   if (!this->commands_.empty()) {
     ESP_LOGD(TAG, "Processing command from queue (queue size: %d)", this->commands_.size());
     Command *cmd = this->commands_.front();
-    // MyComponent IS a BLEClientNode, so we pass it directly as the BLEClient
-    if (cmd->execute((ble_client::BLEClient*)this->parent_)) {
+    // MyComponent is a BLEClientNode, which has a parent() method that returns BLEClient*
+    if (cmd->execute(this->parent_->parent())) {
       ESP_LOGD(TAG, "Command executed successfully, removing from queue");
       delete cmd;
       this->commands_.pop();
