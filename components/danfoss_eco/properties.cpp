@@ -7,23 +7,30 @@ namespace danfoss_eco {
 
 static const char *const TAG = "danfoss_eco.prop";
 
-bool DeviceProperty::init_handle(ble_client::BLEClient *client) {
+bool DeviceProperty::init_handle(BLEClient *client) {
   auto chr = client->get_characteristic(this->service_uuid, this->characteristic_uuid);
-  if (chr == nullptr) {
-    ESP_LOGW(TAG, "Characteristic not found");
-    return false;
-  }
+  if (chr == nullptr) return false;
   this->handle = chr->handle;
   return true;
 }
 
-bool DeviceProperty::read_request(ble_client::BLEClient *client) {
+bool DeviceProperty::read_request(BLEClient *client) {
   if (this->handle == 0) return false;
   return esp_ble_gattc_read_char(client->get_gattc_if(), client->get_conn_id(), 
                                  this->handle, ESP_GATT_AUTH_REQ_NONE) == ESP_OK;
 }
 
-bool WritableProperty::write_request(ble_client::BLEClient *client, uint8_t *data, uint16_t data_len) {
+// Para chamadas do command.h (temperatura/settings)
+bool WritableProperty::write_request(BLEClient *client) {
+  if (this->handle == 0 || this->data == nullptr) return false;
+  auto *writable_data = static_cast<WritableData *>(this->data.get());
+  uint8_t buffer[16];
+  writable_data->pack(buffer);
+  return this->write_request(client, buffer, writable_data->length);
+}
+
+// Para chamadas diretas (como o PIN)
+bool WritableProperty::write_request(BLEClient *client, uint8_t *data, uint16_t data_len) {
   if (this->handle == 0) return false;
   return esp_ble_gattc_write_char(client->get_gattc_if(), client->get_conn_id(), 
                                   this->handle, data_len, data, 
@@ -31,11 +38,8 @@ bool WritableProperty::write_request(ble_client::BLEClient *client, uint8_t *dat
 }
 
 void BatteryProperty::update_state(uint8_t *value, uint16_t value_len) {
-  if (value_len > 0) {
-    float battery = (float)value[0];
-    if (this->component_->battery_level() != nullptr) {
-      this->component_->battery_level()->publish_state(battery);
-    }
+  if (value_len > 0 && this->component_->battery_level() != nullptr) {
+    this->component_->battery_level()->publish_state((float)value[0]);
   }
 }
 
@@ -45,21 +49,30 @@ void TemperatureProperty::update_state(uint8_t *value, uint16_t value_len) {
     this->component_->temperature()->publish_state(t_data->room_temperature);
   }
   this->component_->target_temperature = t_data->target_temperature;
+  this->data = std::move(t_data);
   this->component_->publish_state();
 }
 
 void SettingsProperty::update_state(uint8_t *value, uint16_t value_len) {
   auto s_data = std::make_unique<SettingsData>(this->xxtea_, value, value_len);
   this->component_->mode = s_data->device_mode;
+  this->component_->set_visual_min_temperature_override(s_data->temperature_min);
+  this->component_->set_visual_max_temperature_override(s_data->temperature_max);
+  this->data = std::move(s_data);
   this->component_->publish_state();
 }
 
 void ErrorsProperty::update_state(uint8_t *value, uint16_t value_len) {
   auto e_data = std::make_unique<ErrorsData>(this->xxtea_, value, value_len);
-  bool problem = e_data->E9_VALVE_DOES_NOT_CLOSE || e_data->E14_LOW_BATTERY;
-  if (this->component_->problems()) {
-      this->component_->problems()->publish_state(problem);
+  bool has_problem = e_data->E9_VALVE_DOES_NOT_CLOSE || e_data->E14_LOW_BATTERY;
+  if (this->component_->problems() != nullptr) {
+    this->component_->problems()->publish_state(has_problem);
   }
+  this->data = std::move(e_data);
+}
+
+void SecretKeyProperty::update_state(uint8_t *value, uint16_t value_len) {
+  // Opcional: log da chave recebida
 }
 
 } // namespace danfoss_eco
