@@ -11,7 +11,6 @@ namespace danfoss_eco {
 
 using BLEClient = ble_client::BLEClient;
 
-// UUIDs
 static auto SERVICE_BATTERY = esp32_ble_tracker::ESPBTUUID::from_raw("0000180f-0000-1000-8000-00805f9b34fb");
 static auto CHARACTERISTIC_BATTERY = esp32_ble_tracker::ESPBTUUID::from_raw("00002a19-0000-1000-8000-00805f9b34fb");
 static auto SERVICE_SETTINGS = esp32_ble_tracker::ESPBTUUID::from_raw("10020000-2749-0001-0000-00805f9b042f");
@@ -47,7 +46,6 @@ class WritableProperty : public DeviceProperty {
   using DeviceProperty::DeviceProperty;
   virtual bool write_request(BLEClient *client);
   virtual bool write_request(BLEClient *client, uint8_t *data, uint16_t data_len);
-  // Implementação vazia para permitir instanciar a classe para o PIN
   void update_state(uint8_t *value, uint16_t value_len) override {}
 };
 

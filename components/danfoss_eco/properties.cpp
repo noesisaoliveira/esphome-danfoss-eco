@@ -54,9 +54,9 @@ void TemperatureProperty::update_state(uint8_t *value, uint16_t value_len) {
 void SettingsProperty::update_state(uint8_t *value, uint16_t value_len) {
   auto s_data = std::make_unique<SettingsData>(this->xxtea_, value, value_len);
   this->component_->mode = s_data->device_mode;
-  // Corrigido para os nomes do teu device_data.h
-  this->component_->set_visual_min_temperature_override(s_data->frost_protection_temperature);
-  this->component_->set_visual_max_temperature_override(s_data->vacation_temperature);
+  // Usando os nomes originais do teu device_data.h
+  this->component_->set_visual_min_temperature_override(s_data->temperature_min);
+  this->component_->set_visual_max_temperature_override(s_data->temperature_max);
   this->data = std::move(s_data);
   this->component_->publish_state();
 }
