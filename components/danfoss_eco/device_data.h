@@ -7,8 +7,16 @@
 namespace esphome {
 namespace danfoss_eco {
 
-struct DeviceData { virtual ~DeviceData() = default; };
+/**
+ * Base structure for data received from or sent to the valve.
+ */
+struct DeviceData {
+  virtual ~DeviceData() = default;
+};
 
+/**
+ * Interface for properties that can be written to (requires encryption).
+ */
 struct WritableData : public DeviceData {
   uint16_t length;
   std::shared_ptr<Xxtea> xxtea;
@@ -16,50 +24,89 @@ struct WritableData : public DeviceData {
   virtual void pack(uint8_t *data) = 0;
 };
 
+/**
+ * Handles Temperature and Target Setpoint (UUID 0005)
+ */
 struct TemperatureData : public WritableData {
   float room_temperature{0.0f};
   float target_temperature{0.0f};
 
+  // Constructor for decoding data read from the device
   TemperatureData(std::shared_ptr<Xxtea> &xxtea, uint8_t *raw_data, uint16_t value_len) : WritableData(8, xxtea) {
     if (value_len < 8) return;
     uint8_t decrypted[8];
-    memcpy(decrypted, raw_data, 8);
-    this->xxtea->decrypt(decrypted, 8);
+    xxtea->decrypt(raw_data, 8, decrypted);
     
-    // De acordo com o Python data_struct: 
-    // offset 0: set_point, offset 1: room_temp
-    this->target_temperature = decrypted[0] / 2.0f;
-    this->room_temperature = decrypted[1] / 2.0f;
+    // Danfoss uses 0.5°C units (value / 2)
+    this->room_temperature = (float)decrypted[0] / 2.0f;
+    this->target_temperature = (float)decrypted[1] / 2.0f;
   }
+
+  // Constructor for creating a command to send to the device
+  TemperatureData(std::shared_ptr<Xxtea> &xxtea) : WritableData(8, xxtea) {}
 
   void pack(uint8_t *data) override {
     uint8_t plain[8] = {0};
-    plain[0] = (uint8_t)(this->target_temperature * 2);
+    plain[0] = (uint8_t)(this->room_temperature * 2);
+    plain[1] = (uint8_t)(this->target_temperature * 2);
+    // bytes 2-7 are usually padding or timestamp related in Danfoss protocol
     this->xxtea->encrypt(plain, 8, data);
   }
 };
 
+/**
+ * Handles Device Settings and Min/Max limits (UUID 0003)
+ */
 struct SettingsData : public WritableData {
-  climate::ClimateMode device_mode;
+  float temperature_min{5.0f};
+  float temperature_max{30.0f};
+  climate::ClimateMode device_mode{climate::CLIMATE_MODE_HEAT};
+
   SettingsData(std::shared_ptr<Xxtea> &xxtea, uint8_t *raw_data, uint16_t value_len) : WritableData(16, xxtea) {
     if (value_len < 16) return;
     uint8_t decrypted[16];
-    memcpy(decrypted, raw_data, 16);
-    this->xxtea->decrypt(decrypted, 16);
-    this->device_mode = (decrypted[0] <= 1) ? climate::CLIMATE_MODE_HEAT : climate::CLIMATE_MODE_OFF;
+    xxtea->decrypt(raw_data, 16, decrypted);
+
+    this->temperature_min = (float)decrypted[3] / 2.0f;
+    this->temperature_max = (float)decrypted[4] / 2.0f;
+    
+    // Mode mapping: 0 = Manual (Heat), 1 = At Home (Auto), 2 = Vacation (Off/Eco)
+    uint8_t mode = decrypted[0];
+    if (mode == 0) this->device_mode = climate::CLIMATE_MODE_HEAT;
+    else if (mode == 1) this->device_mode = climate::CLIMATE_MODE_AUTO;
+    else this->device_mode = climate::CLIMATE_MODE_OFF;
   }
-  void pack(uint8_t *data) override {}
+
+  SettingsData(std::shared_ptr<Xxtea> &xxtea) : WritableData(16, xxtea) {}
+
+  void pack(uint8_t *data) override {
+    uint8_t plain[16] = {0};
+    plain[0] = (this->device_mode == climate::CLIMATE_MODE_AUTO) ? 1 : 0;
+    plain[3] = (uint8_t)(this->temperature_min * 2);
+    plain[4] = (uint8_t)(this->temperature_max * 2);
+    this->xxtea->encrypt(plain, 16, data);
+  }
 };
 
+/**
+ * Decodes Error codes from the valve (UUID 0009)
+ */
 struct ErrorsData : public DeviceData {
   bool E9_VALVE_DOES_NOT_CLOSE{false};
+  bool E10_INVALID_TIME{false};
   bool E14_LOW_BATTERY{false};
+  bool E15_VERY_LOW_BATTERY{false};
+
   ErrorsData(std::shared_ptr<Xxtea> &xxtea, uint8_t *raw_data, uint16_t value_len) {
     if (value_len < 8) return;
-    uint8_t dec[8]; memcpy(dec, raw_data, 8);
-    xxtea->decrypt(dec, 8);
-    this->E9_VALVE_DOES_NOT_CLOSE = (dec[0] & 0x01);
-    this->E14_LOW_BATTERY = (dec[1] & 0x01);
+    uint8_t decrypted[8];
+    xxtea->decrypt(raw_data, 8, decrypted);
+
+    // Bitwise error mapping for Danfoss Eco
+    this->E9_VALVE_DOES_NOT_CLOSE = (decrypted[0] & 0x01);
+    this->E10_INVALID_TIME = (decrypted[0] & 0x02);
+    this->E14_LOW_BATTERY = (decrypted[1] & 0x01);
+    this->E15_VERY_LOW_BATTERY = (decrypted[1] & 0x02);
   }
 };
 

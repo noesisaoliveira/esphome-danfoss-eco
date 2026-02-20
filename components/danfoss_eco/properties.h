@@ -11,8 +11,7 @@ namespace danfoss_eco {
 
 using BLEClient = ble_client::BLEClient;
 
-static auto SERVICE_BATTERY = esp32_ble_tracker::ESPBTUUID::from_raw("0000180f-0000-1000-8000-00805f9b34fb");
-static auto CHARACTERISTIC_BATTERY = esp32_ble_tracker::ESPBTUUID::from_raw("00002a19-0000-1000-8000-00805f9b34fb");
+// 1. UUIDs must be defined BEFORE the classes that use them
 static auto SERVICE_SETTINGS = esp32_ble_tracker::ESPBTUUID::from_raw("10020000-2749-0001-0000-00805f9b042f");
 static auto CHARACTERISTIC_PIN = esp32_ble_tracker::ESPBTUUID::from_raw("10020001-2749-0001-0000-00805f9b042f");
 static auto CHARACTERISTIC_SETTINGS = esp32_ble_tracker::ESPBTUUID::from_raw("10020003-2749-0001-0000-00805f9b042f");
@@ -20,33 +19,42 @@ static auto CHARACTERISTIC_TEMPERATURE = esp32_ble_tracker::ESPBTUUID::from_raw(
 static auto CHARACTERISTIC_ERRORS = esp32_ble_tracker::ESPBTUUID::from_raw("10020009-2749-0001-0000-00805f9b042f");
 static auto CHARACTERISTIC_SECRET_KEY = esp32_ble_tracker::ESPBTUUID::from_raw("1002000b-2749-0001-0000-00805f9b042f");
 
+static auto SERVICE_BATTERY = esp32_ble_tracker::ESPBTUUID::from_uint32(0x180F);
+static auto CHARACTERISTIC_BATTERY = esp32_ble_tracker::ESPBTUUID::from_uint32(0x2A19);
+
+const uint16_t INVALID_HANDLE_VAL = 0xFFFF;
+enum PropertyType { TYPE_READ_ONLY, TYPE_WRITABLE };
+
 class DeviceProperty {
  public:
-  uint16_t handle{0};
-  esp32_ble_tracker::ESPBTUUID service_uuid;
-  esp32_ble_tracker::ESPBTUUID characteristic_uuid;
-  std::unique_ptr<DeviceData> data;
+  std::unique_ptr<DeviceData> data{nullptr};
+  uint16_t handle{INVALID_HANDLE_VAL};
+  PropertyType prop_type{TYPE_READ_ONLY};
 
   DeviceProperty(MyComponent *component, std::shared_ptr<Xxtea> xxtea, 
-                 esp32_ble_tracker::ESPBTUUID service_uuid, 
-                 esp32_ble_tracker::ESPBTUUID characteristic_uuid)
-      : component_(component), xxtea_(xxtea), service_uuid(service_uuid), characteristic_uuid(characteristic_uuid) {}
+                 esp32_ble_tracker::ESPBTUUID s_uuid, esp32_ble_tracker::ESPBTUUID c_uuid) 
+      : component_(component), xxtea_(xxtea), service_uuid(s_uuid), characteristic_uuid(c_uuid) {}
 
+  virtual void update_state(uint8_t *value, uint16_t value_len){};
   virtual bool init_handle(BLEClient *client);
-  virtual bool read_request(BLEClient *client);
-  virtual void update_state(uint8_t *value, uint16_t value_len) = 0;
+  bool read_request(BLEClient *client);
 
  protected:
   MyComponent *component_;
   std::shared_ptr<Xxtea> xxtea_;
+  esp32_ble_tracker::ESPBTUUID service_uuid;
+  esp32_ble_tracker::ESPBTUUID characteristic_uuid;
 };
 
 class WritableProperty : public DeviceProperty {
  public:
-  using DeviceProperty::DeviceProperty;
-  virtual bool write_request(BLEClient *client);
-  virtual bool write_request(BLEClient *client, uint8_t *data, uint16_t data_len);
-  void update_state(uint8_t *value, uint16_t value_len) override {}
+  WritableProperty(MyComponent *component, std::shared_ptr<Xxtea> xxtea, 
+                   esp32_ble_tracker::ESPBTUUID s_uuid, esp32_ble_tracker::ESPBTUUID c_uuid) 
+      : DeviceProperty(component, xxtea, s_uuid, c_uuid) {
+      this->prop_type = TYPE_WRITABLE;
+  }
+  bool write_request(BLEClient *client);
+  bool write_request(BLEClient *client, uint8_t *data, uint16_t data_len);
 };
 
 class BatteryProperty : public DeviceProperty {
@@ -82,6 +90,7 @@ class SecretKeyProperty : public DeviceProperty {
   SecretKeyProperty(MyComponent *component, std::shared_ptr<Xxtea> xxtea) 
       : DeviceProperty(component, xxtea, SERVICE_SETTINGS, CHARACTERISTIC_SECRET_KEY) {}
   void update_state(uint8_t *value, uint16_t value_len) override;
+  bool init_handle(BLEClient *client) override;
 };
 
 } // namespace danfoss_eco
