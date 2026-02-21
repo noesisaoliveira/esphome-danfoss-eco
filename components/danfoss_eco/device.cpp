@@ -38,18 +38,18 @@ void Device::loop() {
   static uint32_t last_debug = 0;
   uint32_t now = millis();
   
-  // Debug every 30 seconds to see what's happening
+  // 1. FIXED DEBUG LOG HERE
   if (now - last_debug > 30000) {
-    ESP_LOGD(TAG, "Device::loop() - node_state=%d, queue_size=%d", 
-             this->parent_->node_state, this->commands_.size());
+    ESP_LOGD(TAG, "Device::loop() - node_state=%d, queue_size=%u", 
+             static_cast<int>(this->parent_->node_state), this->commands_.size());
     last_debug = now;
   }
   
-  // Check if service discovery is complete - that's when we can send commands
   // node_state progression: INIT(0) -> SEARCHING(1) -> DISCOVERED(2) -> CACHE_READY(3) -> 
   //                         CONNECTING(4) -> CONNECTED(5) -> ESTABLISHED(6)
-  // We need at least CONNECTED (5) to send commands
-if (static_cast<int>(this->parent_->node_state) < 5) {  // 5 = CONNECTED
+  
+  // 2. YOUR CORRECTED BLOCK
+  if (static_cast<int>(this->parent_->node_state) < 5) {  // 5 = CONNECTED
     if (!this->commands_.empty()) {
       ESP_LOGW(TAG, "NOT READY (state=%d), clearing %u commands from queue", 
                static_cast<int>(this->parent_->node_state), this->commands_.size());
@@ -61,10 +61,10 @@ if (static_cast<int>(this->parent_->node_state) < 5) {  // 5 = CONNECTED
     return;
   }
 
+  // 3. LOG UPDATED FOR CONSISTENCY
   if (!this->commands_.empty()) {
-    ESP_LOGD(TAG, "Processing command from queue (queue size: %d)", this->commands_.size());
+    ESP_LOGD(TAG, "Processing command from queue (queue size: %u)", this->commands_.size());
     Command *cmd = this->commands_.front();
-    // MyComponent is a BLEClientNode, which has a parent() method that returns BLEClient*
     if (cmd->execute(this->parent_->parent())) {
       ESP_LOGD(TAG, "Command executed successfully, removing from queue");
       delete cmd;
