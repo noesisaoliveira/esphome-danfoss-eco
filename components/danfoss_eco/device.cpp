@@ -45,9 +45,11 @@ void Device::loop() {
     last_debug = now;
   }
   
-  if (this->parent_->node_state != esp32_ble_tracker::ClientState::ESTABLISHED) {
+  // Check if BLE is actually connected - state 5 = connection open
+  // In ESPHome 2026, check if state is at least ESTABLISHED (connection complete)
+  if (this->parent_->node_state < esp32_ble_tracker::ClientState::ESTABLISHED) {
     if (!this->commands_.empty()) {
-      ESP_LOGW(TAG, "NOT ESTABLISHED (state=%d), clearing %d commands from queue", 
+      ESP_LOGW(TAG, "NOT CONNECTED (state=%d), clearing %d commands from queue", 
                this->parent_->node_state, this->commands_.size());
     }
     while (!this->commands_.empty()) {
