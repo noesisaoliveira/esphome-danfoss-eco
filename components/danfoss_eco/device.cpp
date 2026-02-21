@@ -45,11 +45,13 @@ void Device::loop() {
     last_debug = now;
   }
   
-  // Check if BLE is actually connected - state 5 = connection open
-  // In ESPHome 2026, check if state is at least ESTABLISHED (connection complete)
-  if (this->parent_->node_state < esp32_ble_tracker::ClientState::ESTABLISHED) {
+  // Check if service discovery is complete - that's when we can send commands
+  // node_state progression: INIT(0) -> SEARCHING(1) -> DISCOVERED(2) -> CACHE_READY(3) -> 
+  //                         CONNECTING(4) -> CONNECTED(5) -> ESTABLISHED(6)
+  // We need at least CONNECTED (5) to send commands
+  if (this->parent_->node_state < 5) {  // 5 = CONNECTED
     if (!this->commands_.empty()) {
-      ESP_LOGW(TAG, "NOT CONNECTED (state=%d), clearing %d commands from queue", 
+      ESP_LOGW(TAG, "NOT READY (state=%d), clearing %d commands from queue", 
                this->parent_->node_state, this->commands_.size());
     }
     while (!this->commands_.empty()) {
