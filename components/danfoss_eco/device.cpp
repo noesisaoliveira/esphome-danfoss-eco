@@ -49,10 +49,10 @@ void Device::loop() {
   // node_state progression: INIT(0) -> SEARCHING(1) -> DISCOVERED(2) -> CACHE_READY(3) -> 
   //                         CONNECTING(4) -> CONNECTED(5) -> ESTABLISHED(6)
   // We need at least CONNECTED (5) to send commands
-  if (this->parent_->node_state < 5) {  // 5 = CONNECTED
+if (static_cast<int>(this->parent_->node_state) < 5) {  // 5 = CONNECTED
     if (!this->commands_.empty()) {
-      ESP_LOGW(TAG, "NOT READY (state=%d), clearing %d commands from queue", 
-               this->parent_->node_state, this->commands_.size());
+      ESP_LOGW(TAG, "NOT READY (state=%d), clearing %u commands from queue", 
+               static_cast<int>(this->parent_->node_state), this->commands_.size());
     }
     while (!this->commands_.empty()) {
       delete this->commands_.front();
