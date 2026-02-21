@@ -35,7 +35,21 @@ void Device::setup() {
 }
 
 void Device::loop() {
+  static uint32_t last_debug = 0;
+  uint32_t now = millis();
+  
+  // Debug every 30 seconds to see what's happening
+  if (now - last_debug > 30000) {
+    ESP_LOGD(TAG, "Device::loop() - node_state=%d, queue_size=%d", 
+             this->parent_->node_state, this->commands_.size());
+    last_debug = now;
+  }
+  
   if (this->parent_->node_state != esp32_ble_tracker::ClientState::ESTABLISHED) {
+    if (!this->commands_.empty()) {
+      ESP_LOGW(TAG, "NOT ESTABLISHED (state=%d), clearing %d commands from queue", 
+               this->parent_->node_state, this->commands_.size());
+    }
     while (!this->commands_.empty()) {
       delete this->commands_.front();
       this->commands_.pop();
