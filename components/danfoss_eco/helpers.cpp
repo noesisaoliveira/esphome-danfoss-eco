@@ -1,71 +1,105 @@
-#include "helpers.h"
+#include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
-#include <cstdio>
-#include <cstring>
 
-namespace esphome {
-namespace danfoss_eco {
+#include "helpers.h"
 
-static uint8_t hex_to_nibble(char c) {
-  if (c >= '0' && c <= '9') return c - '0';
-  if (c >= 'a' && c <= 'f') return c - 'a' + 10;
-  if (c >= 'A' && c <= 'F') return c - 'A' + 10;
-  return 0;
+#define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
+namespace esphome
+{
+    namespace danfoss_eco
+    {
+
+        void encode_hex(const uint8_t *data, size_t len, char *buff)
+        {
+            for (size_t i = 0; i < len; i++)
+                sprintf(buff + (i * 2), "%02x", data[i]);
+        }
+
+        optional<int> parse_hex(const char chr)
+        {
+            int out = chr;
+            if (out >= '0' && out <= '9')
+                return (out - '0');
+            if (out >= 'A' && out <= 'F')
+                return (10 + (out - 'A'));
+            if (out >= 'a' && out <= 'f')
+                return (10 + (out - 'a'));
+            return {};
+        }
+
+        void parse_hex_str(const char *data, size_t str_len, uint8_t *buff)
+        {
+            size_t len = str_len / 2;
+            for (size_t i = 0; i < len; i++)
+                buff[i] = (parse_hex(data[i * 2]).value() << 4) | parse_hex(data[i * 2 + 1]).value();
+        }
+
+        uint32_t parse_int(uint8_t *data, int start_pos)
+        {
+            return int(data[start_pos] << 24 | data[start_pos + 1] << 16 | data[start_pos + 2] << 8 | data[start_pos + 3]);
+        }
+
+        uint16_t parse_short(uint8_t *data, int start_pos)
+        {
+            return short(data[start_pos] << 8 | data[start_pos + 1]);
+        }
+
+        void write_int(uint8_t *data, int start_pos, int value)
+        {
+            data[start_pos] = value >> 24;
+            data[start_pos + 1] = value >> 16;
+            data[start_pos + 2] = value >> 8;
+            data[start_pos + 3] = value;
+        }
+
+        bool parse_bit(uint8_t data, int pos) { return (data & (1 << pos)) >> pos; }
+
+        bool parse_bit(uint16_t data, int pos) { return (data & (1 << pos)) >> pos; }
+
+        void set_bit(uint8_t data, int pos, bool value)
+        {
+            data ^= (-value ^ data) & (1UL << pos);
+        }
+
+        void reverse_chunks(uint8_t *data, int len, uint8_t *reversed_buff)
+        {
+            for (int i = 0; i < len; i += 4)
+            {
+                int l = MIN(4, len - i); // limit for a chunk, 4 or what's left
+                for (int j = 0; j < l; j++)
+                {
+                    reversed_buff[i + j] = data[i + (l - 1 - j)];
+                }
+            }
+        }
+
+        uint8_t *encrypt(shared_ptr<Xxtea> &xxtea, uint8_t *value, uint16_t value_len)
+        {
+            uint8_t buffer[value_len];
+            reverse_chunks(value, value_len, buffer);
+            xxtea->encrypt(buffer, value_len);
+            reverse_chunks(buffer, value_len, value);
+            return value;
+        }
+
+        uint8_t *decrypt(shared_ptr<Xxtea> &xxtea, uint8_t *value, uint16_t value_len)
+        {
+            uint8_t buffer[value_len];
+            reverse_chunks(value, value_len, buffer);
+            xxtea->decrypt(buffer, value_len);
+            reverse_chunks(buffer, value_len, value);
+            return value;
+        }
+
+        void copy_address(uint64_t mac, esp_bd_addr_t bd_addr)
+        {
+            bd_addr[0] = (mac >> 40) & 0xFF;
+            bd_addr[1] = (mac >> 32) & 0xFF;
+            bd_addr[2] = (mac >> 24) & 0xFF;
+            bd_addr[3] = (mac >> 16) & 0xFF;
+            bd_addr[4] = (mac >> 8) & 0xFF;
+            bd_addr[5] = (mac >> 0) & 0xFF;
+        }
+
+    }
 }
-
-void parse_hex_str(const char *data, size_t str_len, uint8_t *buff) {
-  for (size_t i = 0; i < str_len / 2; i++) {
-    uint8_t msb = hex_to_nibble(data[i * 2]);
-    uint8_t lsb = hex_to_nibble(data[i * 2 + 1]);
-    buff[i] = (msb << 4) | lsb;
-  }
-}
-
-void encode_hex(const uint8_t *data, size_t len, char *buff) {
-  for (size_t i = 0; i < len; i++) {
-    sprintf(buff + i * 2, "%02x", data[i]);
-  }
-  buff[len * 2] = '\0';
-}
-
-uint32_t parse_int(const uint8_t *data, int start_pos) {
-  return (uint32_t)data[start_pos] | (uint32_t)data[start_pos + 1] << 8 | 
-         (uint32_t)data[start_pos + 2] << 16 | (uint32_t)data[start_pos + 3] << 24;
-}
-
-uint16_t parse_short(const uint8_t *data, int start_pos) {
-  return (uint16_t)data[start_pos] | (uint16_t)data[start_pos + 1] << 8;
-}
-
-void write_int(uint8_t *data, int start_pos, int value) {
-  data[start_pos] = value & 0xFF;
-  data[start_pos + 1] = (value >> 8) & 0xFF;
-  data[start_pos + 2] = (value >> 16) & 0xFF;
-  data[start_pos + 3] = (value >> 24) & 0xFF;
-}
-
-bool parse_bit(uint8_t data, int pos) { return (data >> pos) & 1; }
-bool parse_bit(uint16_t data, int pos) { return (data >> pos) & 1; }
-
-void set_bit(uint8_t &data, int pos, bool value) {
-  if (value) data |= (1 << pos);
-  else data &= ~(1 << pos);
-}
-
-void reverse_chunks(uint8_t *data, int len, uint8_t *reversed_buff) {
-  for (int i = 0; i < len / 4; i++) {
-    reversed_buff[i * 4] = data[i * 4 + 3];
-    reversed_buff[i * 4 + 1] = data[i * 4 + 2];
-    reversed_buff[i * 4 + 2] = data[i * 4 + 1];
-    reversed_buff[i * 4 + 3] = data[i * 4];
-  }
-}
-
-void copy_address(uint64_t mac, esp_bd_addr_t bd_addr) {
-  for (int i = 0; i < 6; i++) {
-    bd_addr[i] = (mac >> (40 - i * 8)) & 0xFF;
-  }
-}
-
-} // namespace danfoss_eco
-} // namespace esphome

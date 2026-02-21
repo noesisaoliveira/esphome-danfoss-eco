@@ -1,62 +1,60 @@
 #pragma once
 
 #include "esphome/core/component.h"
-#include "esphome/components/climate/climate.h"
-#include "esphome/components/ble_client/ble_client.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
-#include "xxtea.h"
+#include "esphome/components/climate/climate.h"
 
-namespace esphome {
-namespace danfoss_eco {
+#include "helpers.h"
 
-class Device; // Forward declaration
+namespace esphome
+{
+    namespace danfoss_eco
+    {
+        using namespace std;
+        using namespace esphome::climate;
+        using namespace esphome::sensor;
+        using namespace esphome::binary_sensor;
 
-class MyComponent : public climate::Climate, public esphome::ble_client::BLEClientNode, public Component {
- public:
-  void setup() override;
-  void loop() override;
-  void update();
-  void dump_config() override;
+        class MyComponent : public Climate, public PollingComponent, public enable_shared_from_this<MyComponent>
+        {
+        public:
+            float get_setup_priority() const override { return setup_priority::DATA; }
 
-  // Climate overrides
-  void control(const climate::ClimateCall &call) override;
-  climate::ClimateTraits traits() override;
+            ClimateTraits traits() override
+            {
+                auto traits = ClimateTraits();
+                traits.set_supported_modes({ClimateMode::CLIMATE_MODE_HEAT, ClimateMode::CLIMATE_MODE_AUTO});
+                traits.set_visual_temperature_step(0.5);
+                traits.set_visual_min_temperature(this->visual_min_temperature_);
+                traits.set_visual_max_temperature(this->visual_max_temperature_);
+                traits.add_feature_flags(climate::CLIMATE_SUPPORTS_CURRENT_TEMPERATURE | climate::CLIMATE_SUPPORTS_ACTION);
+                return traits;
+            }
 
-  // Visual Temperature Overrides (Driven by SettingsProperty)
-  void set_visual_min_temperature_override(float temp) { visual_min_temp_ = temp; }
-  void set_visual_max_temperature_override(float temp) { visual_max_temp_ = temp; }
+            void set_temperature_range(float min_temp, float max_temp)
+            {
+                this->visual_min_temperature_ = min_temp;
+                this->visual_max_temperature_ = max_temp;
+            }
 
-  // Component Links
-  void set_battery_level(sensor::Sensor *s) { battery_level_ = s; }
-  void set_temperature(sensor::Sensor *s) { temperature_ = s; }
-  void set_problems(binary_sensor::BinarySensor *s) { problems_ = s; }
-  
-  sensor::Sensor *battery_level() { return battery_level_; }
-  sensor::Sensor *temperature() { return temperature_; }
-  binary_sensor::BinarySensor *problems() { return problems_; }
+            void set_battery_level(Sensor *battery_level) { battery_level_ = battery_level; }
+            void set_temperature(Sensor *temperature) { temperature_ = temperature; }
+            void set_problems(BinarySensor *problems) { problems_ = problems; }
 
-  void set_pin_code(const std::string &pin);
-  void set_secret_key(const std::string &key);
-  void set_secret_key(uint8_t *key, bool persist);
+            Sensor *battery_level() { return this->battery_level_; }
+            Sensor *temperature() { return this->temperature_; }
+            BinarySensor *problems() { return this->problems_; }
 
-  // GATT Event Bridge
-  void gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param) override;
+            virtual void set_secret_key(uint8_t *, bool) = 0;
 
- protected:
-  std::shared_ptr<Device> device_;
-  std::shared_ptr<Xxtea> xxtea_instance_;
+        protected:
+            Sensor *battery_level_{nullptr};
+            Sensor *temperature_{nullptr};
+            BinarySensor *problems_{nullptr};
+            float visual_min_temperature_{5.0f};
+            float visual_max_temperature_{30.0f};
+        };
 
-  sensor::Sensor *battery_level_{nullptr};
-  sensor::Sensor *temperature_{nullptr};
-  binary_sensor::BinarySensor *problems_{nullptr};
-
-  float visual_min_temp_{5.0f};
-  float visual_max_temp_{35.0f};
-  
-  uint32_t last_update_{0};
-  std::string pending_secret_key_;
-};
-
-} // namespace danfoss_eco
+    } // namespace danfoss_eco
 } // namespace esphome

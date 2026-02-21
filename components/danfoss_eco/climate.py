@@ -3,32 +3,36 @@ import esphome.config_validation as cv
 from esphome.components import climate, ble_client, sensor, binary_sensor
 from esphome.const import (
     CONF_ID,
+    CONF_NAME,
+    
     CONF_TEMPERATURE,
     CONF_BATTERY_LEVEL,
+    
     CONF_ENTITY_CATEGORY,
     ENTITY_CATEGORY_DIAGNOSTIC,
+    
     STATE_CLASS_MEASUREMENT,
     UNIT_PERCENT,
     UNIT_CELSIUS,
+    
     CONF_DEVICE_CLASS,
     DEVICE_CLASS_BATTERY,
     DEVICE_CLASS_TEMPERATURE,
-    DEVICE_CLASS_PROBLEM,
-    CONF_UPDATE_INTERVAL,
+    DEVICE_CLASS_PROBLEM
 )
 
 CODEOWNERS = ["@dmitry-cherkas"]
 DEPENDENCIES = ["ble_client"]
+# load zero-configuration dependencies automatically
 AUTO_LOAD = ["sensor", "binary_sensor", "esp32_ble_tracker"]
 
 CONF_PIN_CODE = 'pin_code'
 CONF_SECRET_KEY = 'secret_key'
 CONF_PROBLEMS = 'problems'
-CONF_VISUAL = 'visual'
 
 eco_ns = cg.esphome_ns.namespace("danfoss_eco")
 DanfossEco = eco_ns.class_(
-    "MyComponent", climate.Climate, ble_client.BLEClientNode, cg.Component
+    "Device", climate.Climate, ble_client.BLEClientNode, cg.PollingComponent
 )
 
 def validate_secret(value):
@@ -45,12 +49,9 @@ def validate_pin(value):
         raise cv.Invalid("PIN code should be numeric")
     return value
 
-# Build schema manually since CLIMATE_SCHEMA doesn't exist in this version
-CONFIG_SCHEMA = cv.All(
-    cv.Schema(
+CONFIG_SCHEMA = (
+    climate.climate_schema(DanfossEco).extend(
         {
-            cv.GenerateID(): cv.declare_id(DanfossEco),
-            cv.Optional(CONF_VISUAL, default={}): cv.Schema({}),
             cv.Optional(CONF_SECRET_KEY): validate_secret,
             cv.Optional(CONF_PIN_CODE): validate_pin,
             cv.Optional(CONF_BATTERY_LEVEL): sensor.sensor_schema(
@@ -66,17 +67,16 @@ CONFIG_SCHEMA = cv.All(
                 device_class=DEVICE_CLASS_TEMPERATURE,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
-            cv.Optional(CONF_PROBLEMS): binary_sensor.binary_sensor_schema(
-                device_class=DEVICE_CLASS_PROBLEM,
-                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
-            )
+            cv.Optional(CONF_PROBLEMS): binary_sensor.binary_sensor_schema().extend({
+                cv.Optional(CONF_NAME): cv.string,
+                cv.Optional(CONF_ENTITY_CATEGORY, default=ENTITY_CATEGORY_DIAGNOSTIC): cv.entity_category,
+                cv.Optional(CONF_DEVICE_CLASS, default=DEVICE_CLASS_PROBLEM): binary_sensor.validate_device_class
+            })
         }
     )
-    .extend(cv.COMPONENT_SCHEMA)
-    .extend(cv.ENTITY_BASE_SCHEMA)
     .extend(ble_client.BLE_CLIENT_SCHEMA)
+    .extend(cv.polling_component_schema("60s"))
 )
-
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
@@ -84,10 +84,8 @@ async def to_code(config):
     await climate.register_climate(var, config)
     await ble_client.register_ble_node(var, config)
     
-    if CONF_SECRET_KEY in config:
-        cg.add(var.set_secret_key(config[CONF_SECRET_KEY]))
-    if CONF_PIN_CODE in config:
-        cg.add(var.set_pin_code(config[CONF_PIN_CODE]))
+    cg.add(var.set_secret_key(config.get(CONF_SECRET_KEY, "")))
+    cg.add(var.set_pin_code(config.get(CONF_PIN_CODE, "")))
     
     if CONF_BATTERY_LEVEL in config:
         sens = await sensor.new_sensor(config[CONF_BATTERY_LEVEL])
@@ -98,3 +96,4 @@ async def to_code(config):
     if CONF_PROBLEMS in config:
         b_sens = await binary_sensor.new_binary_sensor(config[CONF_PROBLEMS])
         cg.add(var.set_problems(b_sens))
+    

@@ -1,41 +1,91 @@
 #pragma once
 
-#include <queue>
+#include "esphome/components/esp32_ble_tracker/esp32_ble_tracker.h"
+
 #include "properties.h"
 
-namespace esphome {
-namespace danfoss_eco {
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
 
-enum class CommandType { READ, WRITE };
+namespace esphome
+{
+    namespace danfoss_eco
+    {
+        using namespace std;
 
-class Command {
- public:
-  Command(CommandType type, std::shared_ptr<DeviceProperty> property) : type(type), property(property) {}
-  bool execute(ble_client::BLEClient *client) {
-    if (type == CommandType::READ) return property->read_request(client);
-    auto writable = std::static_pointer_cast<WritableProperty>(property);
-    return writable->write_request(client);
-  }
+        enum class CommandType
+        {
+            READ,
+            WRITE
+        };
 
- protected:
-  CommandType type;
-  std::shared_ptr<DeviceProperty> property;
-};
+        struct Command
+        {
+            Command(CommandType t, shared_ptr<DeviceProperty> const &p) : type(t), property(p) {}
 
-class CommandQueue {
- public:
-  void push(Command *cmd) { queue_.push(cmd); }
-  Command *pop() {
-    if (queue_.empty()) return nullptr;
-    Command *cmd = queue_.front();
-    queue_.pop();
-    return cmd;
-  }
-  bool empty() const { return queue_.empty(); }
+            CommandType type; // 0 - read, 1 - write
+            shared_ptr<DeviceProperty> property;
 
- protected:
-  std::queue<Command *> queue_;
-};
+            bool execute(esphome::ble_client::BLEClient *client)
+            {
+                if (this->type == CommandType::WRITE)
+                {
+                    WritableProperty *wp = static_cast<WritableProperty *>(this->property.get());
+                    return wp->write_request(client);
+                }
+                else
+                    return this->property->read_request(client);
+            }
+        };
 
-} // namespace danfoss_eco
+        // Start with 32 entries.
+        // Log queue size/usage or add backpressure warnings.
+        // Scale up to 64 only if you observe dropped or missing advertisements
+        class CommandQueue
+        {
+        protected:
+            QueueHandle_t queue_handle_;
+            static constexpr size_t QUEUE_SIZE = 32;
+
+        public:
+            CommandQueue()
+            {
+                queue_handle_ = xQueueCreate(QUEUE_SIZE, sizeof(Command *));
+            }
+
+            ~CommandQueue()
+            {
+                if (queue_handle_ != nullptr)
+                {
+                    // Clean up any remaining commands
+                    Command *cmd;
+                    while (xQueueReceive(queue_handle_, &cmd, 0) == pdTRUE)
+                    {
+                        delete cmd;
+                    }
+                    vQueueDelete(queue_handle_);
+                }
+            }
+
+            void push(Command *cmd)
+            {
+                xQueueSend(queue_handle_, &cmd, portMAX_DELAY);
+            }
+
+            Command *pop()
+            {
+                Command *cmd = nullptr;
+                if (xQueueReceive(queue_handle_, &cmd, 0) == pdTRUE)
+                {
+                    return cmd;
+                }
+                return nullptr;
+            }
+
+            bool empty() const
+            {
+                return uxQueueMessagesWaiting(queue_handle_) == 0;
+            }
+        };
+    } // namespace danfoss_eco
 } // namespace esphome

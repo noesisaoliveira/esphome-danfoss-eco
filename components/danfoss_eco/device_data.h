@@ -1,114 +1,171 @@
 #pragma once
-#include <memory>
-#include <vector>
+
+#include "esphome/core/log.h"
+
+#include "helpers.h"
 #include "xxtea.h"
-#include "esphome/components/climate/climate_mode.h"
 
-namespace esphome {
-namespace danfoss_eco {
+namespace esphome
+{
+    namespace danfoss_eco
+    {
+        using namespace std;
+        using namespace climate;
 
-/**
- * Base structure for data received from or sent to the valve.
- */
-struct DeviceData {
-  virtual ~DeviceData() = default;
-};
+        struct DeviceData
+        {
+            uint16_t length;
 
-/**
- * Interface for properties that can be written to (requires encryption).
- */
-struct WritableData : public DeviceData {
-  uint16_t length;
-  std::shared_ptr<Xxtea> xxtea;
-  WritableData(uint16_t len, std::shared_ptr<Xxtea> &xt) : length(len), xxtea(xt) {}
-  virtual void pack(uint8_t *data) = 0;
-};
+            DeviceData(uint16_t l, shared_ptr<Xxtea> &xxtea) : length(l), xxtea_(xxtea) {}
+            virtual ~DeviceData()
+            {
+            }
 
-/**
- * Handles Temperature and Target Setpoint (UUID 0005)
- */
-struct TemperatureData : public WritableData {
-  float room_temperature{0.0f};
-  float target_temperature{0.0f};
+        protected:
+            shared_ptr<Xxtea> xxtea_;
+        };
 
-  // Constructor for decoding data read from the device
-  TemperatureData(std::shared_ptr<Xxtea> &xxtea, uint8_t *raw_data, uint16_t value_len) : WritableData(8, xxtea) {
-    if (value_len < 8) return;
-    uint8_t decrypted[8];
-    xxtea->decrypt(raw_data, 8, decrypted);
-    
-    // Danfoss uses 0.5°C units (value / 2)
-    this->room_temperature = (float)decrypted[0] / 2.0f;
-    this->target_temperature = (float)decrypted[1] / 2.0f;
-  }
+        struct WritableData : public DeviceData
+        {
+            WritableData(uint16_t l, shared_ptr<Xxtea> &xxtea) : DeviceData(l, xxtea) {}
+            virtual void pack(uint8_t *) = 0;
+        };
 
-  // Constructor for creating a command to send to the device
-  TemperatureData(std::shared_ptr<Xxtea> &xxtea) : WritableData(8, xxtea) {}
+        struct TemperatureData : public WritableData
+        {
+            float target_temperature;
+            float room_temperature;
 
-  void pack(uint8_t *data) override {
-    uint8_t plain[8] = {0};
-    plain[0] = (uint8_t)(this->room_temperature * 2);
-    plain[1] = (uint8_t)(this->target_temperature * 2);
-    // bytes 2-7 are usually padding or timestamp related in Danfoss protocol
-    this->xxtea->encrypt(plain, 8, data);
-  }
-};
+            TemperatureData(shared_ptr<Xxtea> &xxtea, uint8_t *raw_data, uint16_t value_len) : WritableData(8, xxtea)
+            {
+                uint8_t *temperatures = decrypt(this->xxtea_, raw_data, value_len);
+                
+                this->target_temperature = temperatures[0] / 2.0f;
+                this->room_temperature = temperatures[1] / 2.0f;
+            }
 
-/**
- * Handles Device Settings and Min/Max limits (UUID 0003)
- */
-struct SettingsData : public WritableData {
-  float temperature_min{5.0f};
-  float temperature_max{30.0f};
-  climate::ClimateMode device_mode{climate::CLIMATE_MODE_HEAT};
+            void pack(uint8_t *buff)
+            {
+                buff[0] = (uint8_t)(target_temperature * 2);
+                buff[1] = (uint8_t)(room_temperature * 2);
 
-  SettingsData(std::shared_ptr<Xxtea> &xxtea, uint8_t *raw_data, uint16_t value_len) : WritableData(16, xxtea) {
-    if (value_len < 16) return;
-    uint8_t decrypted[16];
-    xxtea->decrypt(raw_data, 16, decrypted);
+                encrypt(this->xxtea_, buff, length);
+            }
+        };
 
-    this->temperature_min = (float)decrypted[3] / 2.0f;
-    this->temperature_max = (float)decrypted[4] / 2.0f;
-    
-    // Mode mapping: 0 = Manual (Heat), 1 = At Home (Auto), 2 = Vacation (Off/Eco)
-    uint8_t mode = decrypted[0];
-    if (mode == 0) this->device_mode = climate::CLIMATE_MODE_HEAT;
-    else if (mode == 1) this->device_mode = climate::CLIMATE_MODE_AUTO;
-    else this->device_mode = climate::CLIMATE_MODE_OFF;
-  }
+        struct SettingsData : public WritableData
+        {
+            enum DeviceMode
+            {
+                MANUAL = 0,
+                SCHEDULED = 1,
+                VACATION = 3,
+                HOLD = 5
+            };
 
-  SettingsData(std::shared_ptr<Xxtea> &xxtea) : WritableData(16, xxtea) {}
+            bool get_adaptable_regulation() { return parse_bit(this->settings_[0], 0); }
+            bool get_vertical_intallation() { return parse_bit(this->settings_[0], 2); }
+            bool get_display_flip() { return parse_bit(this->settings_[0], 3); }
+            bool get_slow_regulation() { return parse_bit(this->settings_[0], 4); }
+            bool get_valve_installed() { return parse_bit(this->settings_[0], 6); }
+            bool get_lock_control() { return parse_bit(this->settings_[0], 7); }
 
-  void pack(uint8_t *data) override {
-    uint8_t plain[16] = {0};
-    plain[0] = (this->device_mode == climate::CLIMATE_MODE_AUTO) ? 1 : 0;
-    plain[3] = (uint8_t)(this->temperature_min * 2);
-    plain[4] = (uint8_t)(this->temperature_max * 2);
-    this->xxtea->encrypt(plain, 16, data);
-  }
-};
+            void set_adaptable_regulation(bool state) { set_bit(this->settings_[0], 0, state); }
+            void set_vertical_intallation(bool state) { set_bit(this->settings_[0], 2, state); }
+            void set_display_flip(bool state) { set_bit(this->settings_[0], 3, state); }
+            void set_slow_regulation(bool state) { set_bit(this->settings_[0], 4, state); }
+            void set_valve_installed(bool state) { set_bit(this->settings_[0], 6, state); }
+            void set_lock_control(bool state) { set_bit(this->settings_[0], 7, state); }
 
-/**
- * Decodes Error codes from the valve (UUID 0009)
- */
-struct ErrorsData : public DeviceData {
-  bool E9_VALVE_DOES_NOT_CLOSE{false};
-  bool E10_INVALID_TIME{false};
-  bool E14_LOW_BATTERY{false};
-  bool E15_VERY_LOW_BATTERY{false};
+            ClimateMode device_mode;
 
-  ErrorsData(std::shared_ptr<Xxtea> &xxtea, uint8_t *raw_data, uint16_t value_len) {
-    if (value_len < 8) return;
-    uint8_t decrypted[8];
-    xxtea->decrypt(raw_data, 8, decrypted);
+            float temperature_min;
+            float temperature_max;
+            float frost_protection_temperature;
+            float vacation_temperature;
+            // vacation mode can be enabled directly with schedule_mode, or planned with below dates
+            time_t vacation_from; // utc
+            time_t vacation_to;   // utc
 
-    // Bitwise error mapping for Danfoss Eco
-    this->E9_VALVE_DOES_NOT_CLOSE = (decrypted[0] & 0x01);
-    this->E10_INVALID_TIME = (decrypted[0] & 0x02);
-    this->E14_LOW_BATTERY = (decrypted[1] & 0x01);
-    this->E15_VERY_LOW_BATTERY = (decrypted[1] & 0x02);
-  }
-};
+            SettingsData(shared_ptr<Xxtea> &xxtea, uint8_t *raw_data, uint16_t value_len) : WritableData(16, xxtea)
+            {
+                uint8_t *settings = decrypt(this->xxtea_, raw_data, value_len);
 
-} // namespace danfoss_eco
+                this->settings_ = (uint8_t *)malloc(length);
+                memcpy(this->settings_, (const char *)settings, length);
+
+                this->temperature_min = settings[1] / 2.0f;
+                this->temperature_max = settings[2] / 2.0f;
+                this->frost_protection_temperature = settings[3] / 2.0f;
+                this->device_mode = to_climate_mode((DeviceMode)settings[4]);
+                this->vacation_temperature = settings[5] / 2.0f;
+
+                this->vacation_from = parse_int(settings, 6);
+                this->vacation_to = parse_int(settings, 10);
+            }
+
+            ~SettingsData() { free(this->settings_); }
+
+            ClimateMode to_climate_mode(DeviceMode mode)
+            {
+                switch (mode)
+                {
+                case MANUAL:
+                case HOLD: // TODO: not sure, what HOLD represents
+                    return ClimateMode::CLIMATE_MODE_HEAT;
+
+                case SCHEDULED:
+                case VACATION:
+                    return ClimateMode::CLIMATE_MODE_AUTO;
+
+                default:
+                    ESP_LOGW(TAG, "unexpected schedule_mode: %d", mode);
+                    return ClimateMode::CLIMATE_MODE_HEAT; // reasonable default
+                }
+            }
+
+            void pack(uint8_t *buff)
+            {
+                memcpy(buff, (const char *)this->settings_, length);
+
+                buff[1] = (uint8_t)(this->temperature_min * 2);
+                buff[2] = (uint8_t)(this->temperature_max * 2);
+                buff[3] = (uint8_t)(this->frost_protection_temperature * 2);
+                if (this->device_mode == ClimateMode::CLIMATE_MODE_AUTO)
+                    buff[4] = DeviceMode::SCHEDULED;
+                else
+                    buff[4] = DeviceMode::MANUAL;
+                buff[5] = (uint8_t)(this->vacation_temperature * 2);
+
+                write_int(buff, 6, this->vacation_from);
+                write_int(buff, 10, this->vacation_to);
+
+                encrypt(this->xxtea_, buff, length);  // length = 16, not 8!
+            }
+
+        private:
+            uint8_t *settings_;
+        };
+
+        struct ErrorsData : public DeviceData
+        {
+            bool E9_VALVE_DOES_NOT_CLOSE;
+            bool E10_INVALID_TIME;
+            bool E14_LOW_BATTERY;
+            bool E15_VERY_LOW_BATTERY;
+
+            ErrorsData(shared_ptr<Xxtea> &xxtea, uint8_t *raw_data, uint16_t value_len) : DeviceData(8, xxtea)
+            {
+                // unsigned short error;
+                // unsigned char padding[6];
+                uint16_t errors = parse_short(decrypt(this->xxtea_, raw_data, value_len), 0);
+
+                E9_VALVE_DOES_NOT_CLOSE = parse_bit(errors, 8);
+                E10_INVALID_TIME = parse_bit(errors, 9);
+                E14_LOW_BATTERY = parse_bit(errors, 13);
+                E15_VERY_LOW_BATTERY = parse_bit(errors, 14);
+            }
+        };
+
+    } // namespace danfoss_eco
 } // namespace esphome
