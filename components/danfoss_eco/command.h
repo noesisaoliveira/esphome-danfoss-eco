@@ -1,11 +1,9 @@
 #pragma once
 
+#include "esphome/core/lock_free_queue.h"
 #include "esphome/components/esp32_ble_tracker/esp32_ble_tracker.h"
 
 #include "properties.h"
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
 
 namespace esphome
 {
@@ -38,54 +36,11 @@ namespace esphome
             }
         };
 
-        // Start with 32 entries.
-        // Log queue size/usage or add backpressure warnings.
-        // Scale up to 64 only if you observe dropped or missing advertisements
-        class CommandQueue
+        class CommandQueue : public esphome::LockFreeQueue<Command, MAX_BLE_QUEUE_SIZE>
         {
-        protected:
-            QueueHandle_t queue_handle_;
-            static constexpr size_t QUEUE_SIZE = 32;
-
         public:
-            CommandQueue()
-            {
-                queue_handle_ = xQueueCreate(QUEUE_SIZE, sizeof(Command *));
-            }
-
-            ~CommandQueue()
-            {
-                if (queue_handle_ != nullptr)
-                {
-                    // Clean up any remaining commands
-                    Command *cmd;
-                    while (xQueueReceive(queue_handle_, &cmd, 0) == pdTRUE)
-                    {
-                        delete cmd;
-                    }
-                    vQueueDelete(queue_handle_);
-                }
-            }
-
-            void push(Command *cmd)
-            {
-                xQueueSend(queue_handle_, &cmd, portMAX_DELAY);
-            }
-
-            Command *pop()
-            {
-                Command *cmd = nullptr;
-                if (xQueueReceive(queue_handle_, &cmd, 0) == pdTRUE)
-                {
-                    return cmd;
-                }
-                return nullptr;
-            }
-
-            bool empty() const
-            {
-                return uxQueueMessagesWaiting(queue_handle_) == 0;
-            }
+            bool is_empty() { return this->empty(); }
         };
+
     } // namespace danfoss_eco
 } // namespace esphome

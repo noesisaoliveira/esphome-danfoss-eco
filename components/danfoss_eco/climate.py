@@ -1,9 +1,10 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import climate, ble_client, sensor, binary_sensor
+from esphome.components import climate, ble_client, sensor, binary_sensor, text_sensor
 from esphome.const import (
     CONF_ID,
     CONF_NAME,
+    CONF_ICON,
     
     CONF_TEMPERATURE,
     CONF_BATTERY_LEVEL,
@@ -24,11 +25,13 @@ from esphome.const import (
 CODEOWNERS = ["@dmitry-cherkas"]
 DEPENDENCIES = ["ble_client"]
 # load zero-configuration dependencies automatically
-AUTO_LOAD = ["sensor", "binary_sensor", "esp32_ble_tracker"]
+AUTO_LOAD = ["sensor", "binary_sensor", "text_sensor", "esp32_ble_tracker"]
 
 CONF_PIN_CODE = 'pin_code'
 CONF_SECRET_KEY = 'secret_key'
 CONF_PROBLEMS = 'problems'
+CONF_PROBLEMS_DETAIL = 'problems_detail'
+CONF_PROBLEMS_DETAIL_DEFAULT_ICON = 'mdi:format-list-checks'
 
 eco_ns = cg.esphome_ns.namespace("danfoss_eco")
 DanfossEco = eco_ns.class_(
@@ -52,6 +55,7 @@ def validate_pin(value):
 CONFIG_SCHEMA = (
     climate.climate_schema(DanfossEco).extend(
         {
+            cv.GenerateID(): cv.declare_id(DanfossEco),
             cv.Optional(CONF_SECRET_KEY): validate_secret,
             cv.Optional(CONF_PIN_CODE): validate_pin,
             cv.Optional(CONF_BATTERY_LEVEL): sensor.sensor_schema(
@@ -71,6 +75,11 @@ CONFIG_SCHEMA = (
                 cv.Optional(CONF_NAME): cv.string,
                 cv.Optional(CONF_ENTITY_CATEGORY, default=ENTITY_CATEGORY_DIAGNOSTIC): cv.entity_category,
                 cv.Optional(CONF_DEVICE_CLASS, default=DEVICE_CLASS_PROBLEM): binary_sensor.validate_device_class
+            }),
+            cv.Optional(CONF_PROBLEMS_DETAIL): text_sensor.text_sensor_schema().extend({
+                cv.Optional(CONF_NAME): cv.string,
+                cv.Optional(CONF_ENTITY_CATEGORY, default=ENTITY_CATEGORY_DIAGNOSTIC): cv.entity_category,
+                cv.Optional(CONF_ICON, default=CONF_PROBLEMS_DETAIL_DEFAULT_ICON): cv.icon,
             })
         }
     )
@@ -96,4 +105,7 @@ async def to_code(config):
     if CONF_PROBLEMS in config:
         b_sens = await binary_sensor.new_binary_sensor(config[CONF_PROBLEMS])
         cg.add(var.set_problems(b_sens))
+    if CONF_PROBLEMS_DETAIL in config:
+        t_sens = await text_sensor.new_text_sensor(config[CONF_PROBLEMS_DETAIL])
+        cg.add(var.set_problems_detail(t_sens))
     

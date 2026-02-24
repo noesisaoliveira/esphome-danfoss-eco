@@ -1,6 +1,5 @@
 #pragma once
 
-#include <set>
 #include "esphome/components/ble_client/ble_client.h"
 #include "esphome/components/climate/climate.h"
 
@@ -15,6 +14,7 @@
 #ifdef USE_ESP32
 
 #include <esp_gattc_api.h>
+#include <set>
 
 namespace esphome
 {
@@ -31,10 +31,11 @@ namespace esphome
       void dump_config() override
       {
         LOG_CLIMATE("", "Danfoss Eco eTRV", this);
-        ESP_LOGCONFIG(TAG, "  MAC Address: %s", this->parent()->address_str());
+        ESP_LOGCONFIG(TAG, "  MAC Address: %s", this->parent()->address_str().c_str());
         LOG_SENSOR("", "Battery Level", this->battery_level_);
         LOG_SENSOR("", "Room Temperature", this->temperature_);
         LOG_BINARY_SENSOR("", "Problems", this->problems_);
+        LOG_TEXT_SENSOR("", "Problems (Detail)", this->problems_detail_);
       }
 
       void setup() override;

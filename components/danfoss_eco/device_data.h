@@ -39,7 +39,6 @@ namespace esphome
             TemperatureData(shared_ptr<Xxtea> &xxtea, uint8_t *raw_data, uint16_t value_len) : WritableData(8, xxtea)
             {
                 uint8_t *temperatures = decrypt(this->xxtea_, raw_data, value_len);
-                
                 this->target_temperature = temperatures[0] / 2.0f;
                 this->room_temperature = temperatures[1] / 2.0f;
             }
@@ -140,7 +139,7 @@ namespace esphome
                 write_int(buff, 6, this->vacation_from);
                 write_int(buff, 10, this->vacation_to);
 
-                encrypt(this->xxtea_, buff, length);  // length = 16, not 8!
+                encrypt(this->xxtea_, buff, length);
             }
 
         private:

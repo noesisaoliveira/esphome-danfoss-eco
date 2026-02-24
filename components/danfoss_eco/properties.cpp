@@ -71,20 +71,9 @@ namespace esphome
 
         void TemperatureProperty::update_state(uint8_t *value, uint16_t value_len)
         {
-            // Log raw BLE data BEFORE decryption
-            ESP_LOGD(TAG, "[%s] TEMP RAW BLE[%d]: %02x %02x %02x %02x %02x %02x %02x %02x", 
-                     this->component_->get_name().c_str(), value_len,
-                     value_len > 0 ? value[0] : 0, value_len > 1 ? value[1] : 0,
-                     value_len > 2 ? value[2] : 0, value_len > 3 ? value[3] : 0,
-                     value_len > 4 ? value[4] : 0, value_len > 5 ? value[5] : 0,
-                     value_len > 6 ? value[6] : 0, value_len > 7 ? value[7] : 0);
-            
             auto t_data = new TemperatureData(this->xxtea_, value, value_len);
             this->data.reset(t_data);
 
-            // Log processed data AFTER decryption
-            ESP_LOGD(TAG, "[%s] TEMP PROCESSED: room=%.1f target=%.1f", 
-                     this->component_->get_name().c_str(), t_data->room_temperature, t_data->target_temperature);
             ESP_LOGD(TAG, "[%s] Current room temperature: %2.1f°C, Set point temperature: %2.1f°C", this->component_->get_name().c_str(), t_data->room_temperature, t_data->target_temperature);
             if (this->component_->temperature() != nullptr)
                 this->component_->temperature()->publish_state(t_data->room_temperature);
@@ -99,24 +88,10 @@ namespace esphome
 
         void SettingsProperty::update_state(uint8_t *value, uint16_t value_len)
         {
-            // Log raw BLE data BEFORE decryption
-            ESP_LOGD(TAG, "[%s] SETTINGS RAW BLE[%d]: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x", 
-                     this->component_->get_name().c_str(), value_len,
-                     value_len > 0 ? value[0] : 0, value_len > 1 ? value[1] : 0,
-                     value_len > 2 ? value[2] : 0, value_len > 3 ? value[3] : 0,
-                     value_len > 4 ? value[4] : 0, value_len > 5 ? value[5] : 0,
-                     value_len > 6 ? value[6] : 0, value_len > 7 ? value[7] : 0,
-                     value_len > 8 ? value[8] : 0, value_len > 9 ? value[9] : 0,
-                     value_len > 10 ? value[10] : 0, value_len > 11 ? value[11] : 0,
-                     value_len > 12 ? value[12] : 0, value_len > 13 ? value[13] : 0,
-                     value_len > 14 ? value[14] : 0, value_len > 15 ? value[15] : 0);
-            
             auto s_data = new SettingsData(this->xxtea_, value, value_len);
             this->data.reset(s_data);
 
             const char *name = this->component_->get_name().c_str();
-            ESP_LOGD(TAG, "[%s] SETTINGS PROCESSED: min=%.1f max=%.1f mode=%d", 
-                     name, s_data->temperature_min, s_data->temperature_max, (int)s_data->device_mode);
             ESP_LOGD(TAG, "[%s] adaptable_regulation: %d", name, s_data->get_adaptable_regulation());
             ESP_LOGD(TAG, "[%s] vertical_intallation: %d", name, s_data->get_vertical_intallation());
             ESP_LOGD(TAG, "[%s] display_flip: %d", name, s_data->get_display_flip());
@@ -133,7 +108,8 @@ namespace esphome
 
             // apply read configuration to the component
             this->component_->mode = s_data->device_mode;
-            this->component_->set_temperature_range(s_data->temperature_min, s_data->temperature_max);
+            this->component_->set_visual_min_temperature_override(s_data->temperature_min);
+            this->component_->set_visual_max_temperature_override(s_data->temperature_max);
             this->component_->publish_state();
         }
 
@@ -152,6 +128,38 @@ namespace esphome
             // TODO: it would be great to add actual error code to binary_sensor state attributes, but I'm not sure how to achieve that
             if (this->component_->problems() != nullptr)
                 this->component_->problems()->publish_state(e_data->E9_VALVE_DOES_NOT_CLOSE || e_data->E10_INVALID_TIME || e_data->E14_LOW_BATTERY || e_data->E15_VERY_LOW_BATTERY);
+            
+            string problems = "";
+
+            if (e_data->E9_VALVE_DOES_NOT_CLOSE)
+                problems += "Valve Stuck";
+            
+            if (e_data->E10_INVALID_TIME)
+            {
+                if (problems.size() > 0)
+                    problems += " | ";
+                
+                problems += "Invalid Time";
+            }
+
+            if (e_data->E14_LOW_BATTERY)
+            {
+                if (problems.size() > 0)
+                    problems += " | ";
+                
+                problems += "Low Battery";
+            }
+
+            if (e_data->E15_VERY_LOW_BATTERY)
+            {
+                if (problems.size() > 0)
+                    problems += " | ";
+                
+                problems += "Very Low Battery";
+            }
+
+            if (this->component_->problems_detail() != nullptr)
+                this->component_->problems_detail()->publish_state(problems);
         }
 
         bool SecretKeyProperty::init_handle(BLEClient *client)
